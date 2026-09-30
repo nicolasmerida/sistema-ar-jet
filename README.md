@@ -20,15 +20,6 @@ Implementado por la **Comisión 10**.
 4. Abrir un Pull Request hacia `main` y pedir revisión a otro integrante.
 5. No pushear directo a `main`.
 
-### Convención de ramas
-
-| Prefijo | Uso |
-|---------|-----|
-| `feature/` | Nueva funcionalidad (asociada a una US) |
-| `fix/` | Corrección de errores |
-| `docs/` | Documentación |
-| `chore/` | Configuración, dependencias, tooling |
-
 ## Stack tecnológico
 
 A definir por el equipo (completar cuando se decida).
