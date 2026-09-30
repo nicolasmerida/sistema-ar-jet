@@ -1,0 +1,29 @@
+# Dependencias
+node_modules/
+venv/
+.venv/
+__pycache__/
+target/
+vendor/
+
+# Builds
+dist/
+build/
+out/
+*.class
+
+# Variables de entorno / secretos
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+
+# IDEs y SO
+.vscode/
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
