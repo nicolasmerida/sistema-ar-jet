@@ -7,14 +7,16 @@ Implementado por la **Comisión 10**.
 
 ```
 .
-├── frontend/   # Aplicación cliente (UI)
-├── backend/    # API / lógica de negocio / acceso a datos
-└── docs/       # Documentación técnica (diagramas, decisiones, etc.)
+├── frontend/                 # Aplicación cliente (Next.js)
+├── backend/                  # API / lógica de negocio / acceso a datos (TypeScript + JavaScript)
+└── docs/
+    ├── enunciado/            # Enunciado oficial del proyecto (PSS 2026)
+    └── comision-analista/    # Documentos que nos entrega la comisión analista
 ```
 
 ## Cómo trabajar
 
-1. Clonar el repo: `git clone <url-del-repo>`
+1. Clonar el repo: `git clone https://github.com/nicolasmerida/sistema-ar-jet.git`
 2. Crear una rama por tarea/US: `git checkout -b feature/US-XX-descripcion`
 3. Commits chicos y descriptivos.
 4. Abrir un Pull Request hacia `main` y pedir revisión a otro integrante.
@@ -22,10 +24,10 @@ Implementado por la **Comisión 10**.
 
 ## Stack tecnológico
 
-A definir por el equipo (completar cuando se decida).
-
 | Capa | Tecnología |
 |------|-----------|
-| Frontend | _por definir_ |
-| Backend | _por definir_ |
-| Base de datos | _por definir_ |
+| Frontend | [Next.js](https://nextjs.org/) |
+| Backend | [Node.js](https://nodejs.org/) con TypeScript y JavaScript |
+| Base de datos | PostgreSQL alojado en [Neon](https://neon.tech/) |
+
+> Las credenciales de la base (connection string de Neon) **nunca** se suben al repo: van en un archivo `.env` local, que ya está en el `.gitignore`. Ver `backend/.env.example`.
