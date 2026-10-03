@@ -20,6 +20,30 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Database (Prisma 7)
+
+Set `DATABASE_URL` in `.env` to your Neon PostgreSQL connection string.
+Optionally set `DIRECT_URL` for CLI operations; otherwise they use `DATABASE_URL`.
+Configure the same variables in Vercel for the environments you deploy to.
+
+```bash
+npm run db:pull
+npm run db:generate
+```
+
+`db:pull` reads existing tables into `prisma/schema.prisma` without changing them.
+The generated client lives in `src/generated/prisma` and is excluded from Git.
+`npm install` regenerates it through `postinstall`.
+
+Import the shared client only from server-side code:
+
+```ts
+import { db } from "@/src/prisma/db";
+```
+
+Existing tables have not been baselined for Prisma Migrate. Set up a baseline
+before using migrations against this database.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

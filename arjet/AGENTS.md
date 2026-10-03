@@ -7,3 +7,6 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## Instrucciones
+- Modularizar bien la UI para asi no tener page.tsx de muchas lineas, siempre tratar de crear una carpeta /ui donde se meten diferentes componentes que se usan en los page.tsx de cada pagina. Ejemplo si tengo /dashboard/aviones, tener un ui/dashboard/aviones donde vayan los componentes que se usen en la page.tsx correspondiente a aviones.
