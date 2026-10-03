@@ -8,10 +8,10 @@ import {
 } from "lucide-react";
 
 export const navigationItems = [
-  { label: "Inicio", href: "/", icon: CalendarClock, active: true },
-  { label: "Vuelos", href: "/vuelos", icon: PlaneTakeoff },
-  { label: "Aeropuertos", href: "/aeropuertos", icon: MapPin },
-  { label: "Aviones", href: "/aviones", icon: Plane },
+  { label: "Inicio", href: "/dashboard", icon: CalendarClock, active: true },
+  { label: "Vuelos", href: "/dashboard/vuelos", icon: PlaneTakeoff },
+  { label: "Aeropuertos", href: "/dashboard/aeropuertos", icon: MapPin },
+  { label: "Aviones", href: "/dashboard/aviones", icon: Plane },
 ];
 
 export const summaryCards = [
