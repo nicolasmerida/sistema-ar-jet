@@ -4,6 +4,7 @@
 |---------|-----------|
 | `enunciado/` | Enunciado oficial del proyecto cuatrimestral (PSS 2026). |
 | `comision-analista/` | Documentos que nos entrega la comisión de Análisis & Management del enunciado. |
+| `guias/` | Guías internas del equipo implementador. |
 
 ## Documentos de la comisión analista
 
@@ -17,3 +18,10 @@
 | `Link-Wireframes.txt` | Link a la sala de Excalidraw con los wireframes | Navegador |
 
 Cuando la comisión analista entregue documentos nuevos o actualizados, agregarlos en `comision-analista/` y actualizar esta tabla.
+
+## Guías del equipo
+
+| Guía | Contenido |
+|------|-----------|
+| [`guias/01-guia-claude-en-la-nube.md`](guias/01-guia-claude-en-la-nube.md) | Cómo usar Claude Code en la nube (claude.ai/code) con este repo: GitHub, entornos, Neon, sesiones, PRs. |
+| [`guias/02-guia-nextjs-typescript.md`](guias/02-guia-nextjs-typescript.md) | TypeScript, React y Next.js desde cero, backend con Express + PostgreSQL y un ejemplo completo de la US-00. |

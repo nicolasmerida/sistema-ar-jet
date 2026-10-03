@@ -11,6 +11,7 @@ Implementado por la **Comisión 10**.
 ├── backend/                  # API / lógica de negocio / acceso a datos (TypeScript + JavaScript)
 └── docs/
     ├── enunciado/            # Enunciado oficial del proyecto (PSS 2026)
+    ├── guias/                # Guías del equipo (Claude en la nube, Next.js + TypeScript)
     └── comision-analista/    # Documentos que nos entrega la comisión analista
 ```
 
