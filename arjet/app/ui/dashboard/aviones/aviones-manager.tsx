@@ -2,9 +2,11 @@
 
 import { Plus } from "lucide-react";
 import { useState } from "react";
-import { validarAvion, type DatosAvion, type ErroresAvion } from "@/lib/aviones/validacion";
+import { crearAvion, actualizarAvion, eliminarAvion } from "@/lib/aviones/actions";
+import type { DatosAvion } from "@/lib/aviones/validacion";
+import type { ResultadoAccionAvion } from "@/lib/aviones/tipos";
 import { AvionFormModal } from "./avion-form-modal";
-import { avionesEjemplo, type AvionListado } from "./aviones-data";
+import type { AvionListado } from "./aviones-data";
 import { AvionesTable } from "./aviones-table";
 import { Aviso, type DatosAviso } from "./aviso";
 import { Buscador } from "./buscador";
@@ -16,46 +18,31 @@ function normalizar(texto: string) {
   return texto.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
 }
 
-export function AvionesManager() {
-  const [aviones, setAviones] = useState(avionesEjemplo);
+export function AvionesManager({ aviones }: { aviones: AvionListado[] }) {
   const [busqueda, setBusqueda] = useState("");
   const [modal, setModal] = useState<ModalAbierto>(null);
   const [aviso, setAviso] = useState<DatosAviso | null>(null);
   const termino = normalizar(busqueda.trim());
   const filtrados = aviones.filter((avion) => normalizar(`${avion.matricula} ${avion.modelo}`).includes(termino));
 
-  function guardar(datos: DatosAvion): ErroresAvion {
-    const errores = validarAvion(datos);
-    if (Object.keys(errores).length) return errores;
+  async function guardar(datos: DatosAvion): Promise<ResultadoAccionAvion> {
     const editado = modal?.tipo === "editar" ? modal.avion : undefined;
-    const matricula = datos.matricula.trim().toUpperCase();
-    if (aviones.some((avion) => avion.id !== editado?.id && avion.matricula.toUpperCase() === matricula))
-      return { matricula: "Ya existe un avión con esa matrícula" };
-    const avion: AvionListado = {
-      id: editado?.id ?? Math.max(0, ...aviones.map((item) => item.id)) + 1,
-      matricula,
-      modelo: datos.modelo.trim(),
-      capacidadEconomy: Number(datos.capacidadEconomy),
-      capacidadPrimera: Number(datos.capacidadPrimera),
-      vuelosVigentes: editado?.vuelosVigentes ?? 0,
-    };
-    setAviones((previos) => editado ? previos.map((item) => item.id === editado.id ? avion : item) : [...previos, avion]);
-    setModal(null);
-    setAviso({ tipo: "exito", mensaje: editado ? "Avión actualizado correctamente" : "Avión registrado correctamente" });
-    return {};
+    const resultado = editado ? await actualizarAvion(editado.id, datos) : await crearAvion(datos);
+    if (resultado.ok) {
+      setModal(null);
+      setAviso({ tipo: "exito", mensaje: resultado.mensaje });
+    }
+    return resultado;
   }
 
-  function eliminar() {
-    if (modal?.tipo !== "eliminar") return;
-    const avion = aviones.find((item) => item.id === modal.avion.id);
-    if (!avion) return;
-    if (avion.vuelosVigentes > 0) {
-      setAviso({ tipo: "error", mensaje: "No se puede dar de baja un avión asignado a vuelos vigentes" });
-      return;
+  async function eliminar(): Promise<ResultadoAccionAvion> {
+    if (modal?.tipo !== "eliminar") return { ok: false, mensaje: "Seleccioná un avión" };
+    const resultado = await eliminarAvion(modal.avion.id);
+    if (resultado.ok) {
+      setModal(null);
+      setAviso({ tipo: "exito", mensaje: resultado.mensaje });
     }
-    setAviones((previos) => previos.filter((item) => item.id !== avion.id));
-    setModal(null);
-    setAviso({ tipo: "exito", mensaje: "Avión dado de baja correctamente" });
+    return resultado;
   }
 
   return (
@@ -72,7 +59,6 @@ export function AvionesManager() {
       <Buscador valor={busqueda} onCambiar={setBusqueda} />
       {aviso && <Aviso {...aviso} onCerrar={() => setAviso(null)} />}
       <AvionesTable aviones={filtrados} hayBusqueda={Boolean(termino)} onEditar={(avion) => setModal({ tipo: "editar", avion })} onEliminar={(avion) => setModal({ tipo: "eliminar", avion })} />
-      <p className="text-xs text-zinc-500">Vista de demostración: los cambios se conservan hasta recargar la página.</p>
       {modal?.tipo === "crear" && <AvionFormModal onCerrar={() => setModal(null)} onGuardar={guardar} />}
       {modal?.tipo === "editar" && <AvionFormModal key={modal.avion.id} avion={modal.avion} onCerrar={() => setModal(null)} onGuardar={guardar} />}
       {modal?.tipo === "eliminar" && <EliminarAvionModal avion={modal.avion} onCerrar={() => setModal(null)} onConfirmar={eliminar} />}

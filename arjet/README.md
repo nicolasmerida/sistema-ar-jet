@@ -58,11 +58,13 @@ El modelo `avion` incluye `matricula` única y `modelo`, ambos obligatorios.
 Si Prisma informa que no puede agregar campos obligatorios a registros existentes,
 hay que completar sus datos reales antes de continuar. No usar un reset para resolverlo.
 
-La pantalla `/dashboard/aviones` es una interfaz de demostración con datos de
-ejemplo. Permite buscar, crear, editar y confirmar bajas con validaciones locales.
-Los cambios se pierden al recargar; todavía no hay persistencia ni autorización
-conectadas al backend. El avión de ejemplo `LV-FRT` permite probar el bloqueo de
-baja por vuelos vigentes.
+La pantalla `/dashboard/aviones` consulta Neon en cada petición mediante Prisma.
+El alta, la edición y la baja usan Server Actions en `lib/aviones/actions.ts`,
+validan nuevamente los datos en el servidor y actualizan el listado tras guardar.
+La matrícula se normaliza a mayúsculas al crear y permanece fija en la edición.
+La baja comprueba los viajes vigentes en la base y conserva cualquier avión con
+viajes registrados para mantener el historial y respetar sus claves foráneas.
+La autorización por rol administrador está pendiente del módulo de login.
 
 ## Learn More
 
