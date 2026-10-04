@@ -44,6 +44,26 @@ import { db } from "@/src/prisma/db";
 Existing tables have not been baselined for Prisma Migrate. Set up a baseline
 before using migrations against this database.
 
+### Campos de aviones e interfaz
+
+Desde `arjet/`, con `.env` apuntando a la base correspondiente, sincronizar
+el esquema con Neon y regenerar el cliente:
+
+```bash
+npx prisma db push
+npm run db:generate
+```
+
+El modelo `avion` incluye `matricula` única y `modelo`, ambos obligatorios.
+Si Prisma informa que no puede agregar campos obligatorios a registros existentes,
+hay que completar sus datos reales antes de continuar. No usar un reset para resolverlo.
+
+La pantalla `/dashboard/aviones` es una interfaz de demostración con datos de
+ejemplo. Permite buscar, crear, editar y confirmar bajas con validaciones locales.
+Los cambios se pierden al recargar; todavía no hay persistencia ni autorización
+conectadas al backend. El avión de ejemplo `LV-FRT` permite probar el bloqueo de
+baja por vuelos vigentes.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

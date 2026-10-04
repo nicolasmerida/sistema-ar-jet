@@ -14,9 +14,11 @@ model administrador {
 
 model aeropuerto {
   id_aeropuerto                   Int     @id @default(autoincrement())
-  direccion                       String  @db.VarChar(200)
+  direccion                       String? @db.VarChar(200)
   ciudad                          String  @db.VarChar(100)
-  pais                            String  @db.VarChar(100)
+  pais                            String? @db.VarChar(100)
+  codigo_iata                     String  @unique @db.VarChar(3)
+  nombre                          String  @db.VarChar(150)
   vuelo_vuelo_destinoToaeropuerto vuelo[] @relation("vuelo_destinoToaeropuerto")
   vuelo_vuelo_origenToaeropuerto  vuelo[] @relation("vuelo_origenToaeropuerto")
 }
@@ -24,6 +26,8 @@ model aeropuerto {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model avion {
   id_avion          Int     @id @default(autoincrement())
+  matricula         String  @unique
+  modelo            String
   capacidad_primera Int
   capacidad_economy Int
   viaje             viaje[]

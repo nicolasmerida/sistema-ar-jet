@@ -1,5 +1,9 @@
 import { DashboardHome } from "../ui/dashboard/dashboard-home";
 
 export default function DashboardPage() {
-  return <DashboardHome />;
+  return (
+    <div className="w-full p-6">
+      <DashboardHome />
+    </div>
+  );
 }
