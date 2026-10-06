@@ -1,6 +1,5 @@
 import { PlaneTakeoff } from "lucide-react";
-import Link from "next/link";
-import { navigationItems } from "./dashboard-data";
+import { NavLinks } from "./nav-links";
 
 export function Sidebar() {
   return (
@@ -18,25 +17,7 @@ export function Sidebar() {
         aria-label="Menú principal"
         className="flex gap-2 overflow-x-auto lg:flex-col lg:overflow-visible"
       >
-        {navigationItems.map((item) => {
-          const Icon = item.icon;
-
-          return (
-            <Link
-              key={item.label}
-              href={item.href}
-              aria-current={item.active ? "page" : undefined}
-              className={`flex min-w-max items-center gap-3 rounded-md px-3 py-3 text-sm font-medium transition lg:min-w-0 ${
-                item.active
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-zinc-700 hover:bg-white hover:text-secondary"
-              }`}
-            >
-              <Icon className="size-4 shrink-0" aria-hidden="true" />
-              {item.label}
-            </Link>
-          );
-        })}
+        <NavLinks />
       </nav>
     </aside>
   );
