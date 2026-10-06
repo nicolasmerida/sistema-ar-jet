@@ -65,7 +65,11 @@ export function EliminarAeropuertoModal({
   }
 
   return (
-    <Modal titulo="Eliminar aeropuerto" onCerrar={cerrar}>
+    <Modal
+      titulo="Eliminar aeropuerto"
+      deshabilitarCerrar={eliminando}
+      onCerrar={cerrar}
+    >
       <div className="flex flex-col gap-6">
         <p className="text-sm text-zinc-600">
           ¿Querés eliminar el aeropuerto <strong>{nombreCompleto}</strong> (

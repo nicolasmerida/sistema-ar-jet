@@ -102,6 +102,7 @@ export function AeropuertoFormModal({
     <Modal
       titulo={aeropuerto ? "Editar aeropuerto" : "Nuevo aeropuerto"}
       descripcion="Ingresá los datos del aeropuerto. Todos los campos son obligatorios."
+      deshabilitarCerrar={guardando}
       onCerrar={cerrar}
     >
       <form onSubmit={guardar} noValidate className="flex flex-col gap-5">
@@ -114,6 +115,7 @@ export function AeropuertoFormModal({
             maxLength={LARGO_MAXIMO.codigo}
             placeholder="SLA"
             autoFocus
+            disabled={guardando}
             className="font-mono uppercase"
             onCambiar={(valor) => cambiar("codigo", valor)}
             onSalir={() => marcarTocado("codigo")}
@@ -125,6 +127,7 @@ export function AeropuertoFormModal({
             error={errorDe("nombre")}
             maxLength={LARGO_MAXIMO.nombre}
             placeholder="Martín Miguel de Güemes"
+            disabled={guardando}
             onCambiar={(valor) => cambiar("nombre", valor)}
             onSalir={() => marcarTocado("nombre")}
           />
@@ -138,6 +141,7 @@ export function AeropuertoFormModal({
             error={errorDe("ciudad")}
             maxLength={LARGO_MAXIMO.ciudad}
             placeholder="Salta"
+            disabled={guardando}
             onCambiar={(valor) => cambiar("ciudad", valor)}
             onSalir={() => marcarTocado("ciudad")}
           />
@@ -148,6 +152,7 @@ export function AeropuertoFormModal({
             error={errorDe("pais")}
             maxLength={LARGO_MAXIMO.pais}
             placeholder="Argentina"
+            disabled={guardando}
             onCambiar={(valor) => cambiar("pais", valor)}
             onSalir={() => marcarTocado("pais")}
           />
@@ -160,6 +165,7 @@ export function AeropuertoFormModal({
           error={errorDe("direccion")}
           maxLength={LARGO_MAXIMO.direccion}
           placeholder="Ruta Nacional 51, km 5"
+          disabled={guardando}
           onCambiar={(valor) => cambiar("direccion", valor)}
           onSalir={() => marcarTocado("direccion")}
         />
@@ -197,6 +203,7 @@ type CampoTextoProps = {
   placeholder: string;
   autoFocus?: boolean;
   className?: string;
+  disabled?: boolean;
   onCambiar: (valor: string) => void;
   onSalir: () => void;
 };
@@ -210,6 +217,7 @@ function CampoTexto({
   placeholder,
   autoFocus,
   className = "",
+  disabled = false,
   onCambiar,
   onSalir,
 }: CampoTextoProps) {
@@ -230,11 +238,12 @@ function CampoTexto({
         autoFocus={autoFocus}
         autoComplete="off"
         required
+        disabled={disabled}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? idError : undefined}
         onChange={(event) => onCambiar(event.target.value)}
         onBlur={onSalir}
-        className={`rounded-md border px-3 py-2 text-sm outline-none transition placeholder:text-zinc-400 focus:ring-2 ${
+        className={`rounded-md border px-3 py-2 text-sm outline-none transition placeholder:text-zinc-400 focus:ring-2 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-500 ${
           error
             ? "border-red-500 bg-red-50/40 focus:border-red-500 focus:ring-red-200"
             : "border-zinc-300 focus:border-primary focus:ring-primary/30"
