@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 
 export const navigationItems = [
-  { label: "Inicio", href: "/dashboard", icon: CalendarClock, active: true },
+  { label: "Inicio", href: "/dashboard", icon: CalendarClock },
   { label: "Vuelos", href: "/dashboard/vuelos", icon: PlaneTakeoff },
   { label: "Aeropuertos", href: "/dashboard/aeropuertos", icon: MapPin },
   { label: "Aviones", href: "/dashboard/aviones", icon: Plane },

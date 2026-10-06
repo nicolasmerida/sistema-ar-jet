@@ -8,7 +8,9 @@ export function Topbar() {
         <p className="text-xs font-semibold uppercase text-zinc-500">
           Dashboard
         </p>
-        <p className="mt-1 text-lg font-semibold text-foreground"><ActivePageTitle /></p>
+        <p className="mt-1 text-lg font-semibold text-foreground">
+          <ActivePageTitle />
+        </p>
       </div>
 
       <div className="flex items-center gap-3">
