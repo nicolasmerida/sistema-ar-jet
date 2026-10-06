@@ -1,0 +1,42 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import type { ResultadoAccionAvion } from "@/lib/aviones/tipos";
+import type { AvionListado } from "./aviones-data";
+import { Modal } from "./modal";
+
+export function EliminarAvionModal({ avion, onCerrar, onConfirmar }: {
+  avion: AvionListado; onCerrar: () => void; onConfirmar: () => Promise<ResultadoAccionAvion>;
+}) {
+  const bloqueado = avion.vuelosVigentes > 0;
+  const [eliminando, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  function confirmar() {
+    if (bloqueado || eliminando) return;
+    startTransition(async () => {
+      setError(null);
+      try {
+        const resultado = await onConfirmar();
+        if (!resultado.ok) setError(resultado.mensaje);
+      } catch {
+        setError("No se pudieron guardar los datos. Por favor, contactá al equipo técnico");
+      }
+    });
+  }
+  return (
+    <Modal titulo="Dar de baja avión" onCerrar={() => { if (!eliminando) onCerrar(); }}>
+      <p className="text-sm text-zinc-600">¿Está seguro de que quiere dar de baja el avión <strong className="text-foreground">{avion.matricula}</strong> ({avion.modelo})?</p>
+      {bloqueado ? (
+        <p role="alert" className="mt-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">No se puede dar de baja un avión asignado a vuelos vigentes</p>
+      ) : (
+        <p className="mt-3 text-sm text-zinc-500">Dejará de estar disponible para asignarlo a nuevos vuelos.</p>
+      )}
+      {error && <p role="alert" className="mt-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+      <div className="mt-7 flex justify-end gap-3">
+        <button type="button" disabled={eliminando} onClick={onCerrar} className="rounded-md border border-zinc-300 px-5 py-2.5 text-sm font-medium hover:bg-tertiary">{bloqueado ? "Cerrar" : "No, cancelar"}</button>
+        <button type="button" disabled={bloqueado || eliminando} onClick={confirmar} className="rounded-md bg-secondary px-5 py-2.5 text-sm font-semibold text-secondary-foreground hover:bg-secondary/90 disabled:cursor-not-allowed disabled:opacity-50">{eliminando ? "Procesando..." : "Sí, dar de baja"}</button>
+      </div>
+    </Modal>
+  );
+}

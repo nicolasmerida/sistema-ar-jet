@@ -12,5 +12,9 @@ export default async function AeropuertosPage() {
   await connection();
   const aeropuertos = await obtenerAeropuertos();
 
-  return <AeropuertosManager aeropuertos={aeropuertos} />;
+  return (
+    <div className="w-full p-6">
+      <AeropuertosManager aeropuertos={aeropuertos} />
+    </div>
+  );
 }
