@@ -46,7 +46,8 @@ model empleado {
 model estado {
   id_viaje     Int
   estado_viaje estado_viaje_t
-  motivo       String?        @db.VarChar(255)
+  motivo       String?        @db.VarChar(500)
+  fecha        DateTime       @default(now()) @db.Timestamptz(6)
   viaje        viaje          @relation(fields: [id_viaje], references: [id_viaje], onDelete: Cascade, onUpdate: NoAction)
 
   @@id([id_viaje, estado_viaje])
@@ -130,6 +131,10 @@ model vuelo {
   fin_disp                             DateTime   @db.Date
   precio_economy                       Decimal    @db.Decimal(10, 2)
   precio_primera                       Decimal    @db.Decimal(10, 2)
+  numero                               String     @db.VarChar(10)
+  hora_salida                          DateTime   @db.Time(0)
+  hora_llegada                         DateTime   @db.Time(0)
+  dias_operacion                       Int[]      @db.SmallInt
   viaje                                viaje[]
   aeropuerto_vuelo_destinoToaeropuerto aeropuerto @relation("vuelo_destinoToaeropuerto", fields: [destino], references: [id_aeropuerto], onDelete: NoAction, onUpdate: NoAction)
   aeropuerto_vuelo_origenToaeropuerto  aeropuerto @relation("vuelo_origenToaeropuerto", fields: [origen], references: [id_aeropuerto], onDelete: NoAction, onUpdate: NoAction)
