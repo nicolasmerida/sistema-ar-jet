@@ -5,8 +5,9 @@ import { cancelarViaje } from "@/lib/vuelos/actions";
 import type { DetalleVuelo, ViajeDetalle } from "@/lib/vuelos/tipos";
 import { Aviso, type DatosAviso } from "../aviones/aviso";
 import { CancelarViajeModal } from "./cancelar-viaje-modal";
+import { DeBaja } from "./de-baja";
 import { EstadoBadge } from "./estado-badge";
-import { fechaDeInstante, horaDeInstante } from "./formato";
+import { diaYMesDeInstante, fechaDeInstante, horaDeInstante, mismoDia } from "./formato";
 
 const COLUMNAS = ["Fecha", "Horario", "Avión", "Reservas activas", "Estado", "Acciones"];
 
@@ -54,8 +55,13 @@ export function ViajesTable({ vuelo }: { vuelo: DetalleVuelo }) {
               ) : viajes.map((viaje) => (
                 <tr key={viaje.id} className="align-top hover:bg-tertiary/60">
                   <td className="px-5 py-4 whitespace-nowrap capitalize">{fechaDeInstante(viaje.partida)}</td>
-                  <td className="px-5 py-4 whitespace-nowrap">{horaDeInstante(viaje.partida)} – {horaDeInstante(viaje.llegada)}</td>
-                  <td className="px-5 py-4 font-mono">{viaje.avion}</td>
+                  <td className="px-5 py-4 whitespace-nowrap">
+                    {/* Si llega otro día se muestra la fecha: "23:30 → mié 15/10 02:00". */}
+                    {mismoDia(viaje.partida, viaje.llegada)
+                      ? `${horaDeInstante(viaje.partida)} – ${horaDeInstante(viaje.llegada)}`
+                      : `${horaDeInstante(viaje.partida)} → ${diaYMesDeInstante(viaje.llegada)} ${horaDeInstante(viaje.llegada)}`}
+                  </td>
+                  <td className="px-5 py-4 font-mono"><DeBaja texto={viaje.avion} deBaja={viaje.avionDeBaja} tipo="avión" /></td>
                   <td className="px-5 py-4">{viaje.reservasActivas}</td>
                   <td className="px-5 py-4">
                     <EstadoBadge estado={viaje.estado} />

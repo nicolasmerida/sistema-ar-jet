@@ -1,5 +1,6 @@
 import type { OpcionAeropuerto } from "@/lib/vuelos/tipos";
 import { Campo, Seccion, claseControl } from "./campo";
+import { ResumenLlegada } from "./resumen-llegada";
 import type { PropsSeccion } from "./vuelo-form";
 
 export function SeccionRuta({ datos, errores, cambiar, tocar, bloqueado, edicion, aeropuertos }: PropsSeccion & {
@@ -9,25 +10,38 @@ export function SeccionRuta({ datos, errores, cambiar, tocar, bloqueado, edicion
 
   return (
     <Seccion titulo="Ruta y horarios" descripcion="Los campos con * son obligatorios.">
-      <div className="grid gap-5 sm:grid-cols-3">
-        <Campo id="vuelo-numero" etiqueta="Número de vuelo" error={errores.numero}>
-          <input id="vuelo-numero" value={datos.numero} placeholder="AN 520" autoComplete="off" maxLength={10}
-            disabled={bloqueado} readOnly={edicion} aria-invalid={Boolean(errores.numero)} aria-describedby={descripcionError("numero")}
-            onChange={(event) => cambiar("numero", event.target.value.toUpperCase())} onBlur={() => tocar("numero")}
-            className={`${claseControl(errores.numero)} read-only:bg-tertiary`} />
-        </Campo>
-        <Campo id="vuelo-horaSalida" etiqueta="Hora de salida" error={errores.horaSalida}>
-          <input id="vuelo-horaSalida" type="time" value={datos.horaSalida} disabled={bloqueado}
-            aria-invalid={Boolean(errores.horaSalida)} aria-describedby={descripcionError("horaSalida")}
-            onChange={(event) => cambiar("horaSalida", event.target.value)} onBlur={() => tocar("horaSalida")}
-            className={claseControl(errores.horaSalida)} />
-        </Campo>
-        <Campo id="vuelo-horaLlegada" etiqueta="Hora de llegada" error={errores.horaLlegada}>
-          <input id="vuelo-horaLlegada" type="time" value={datos.horaLlegada} disabled={bloqueado}
-            aria-invalid={Boolean(errores.horaLlegada)} aria-describedby={descripcionError("horaLlegada")}
-            onChange={(event) => cambiar("horaLlegada", event.target.value)} onBlur={() => tocar("horaLlegada")}
-            className={claseControl(errores.horaLlegada)} />
-        </Campo>
+      <div className="flex flex-col gap-2">
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <Campo id="vuelo-numero" etiqueta="Número de vuelo" error={errores.numero}>
+            <input id="vuelo-numero" value={datos.numero} placeholder="AN 520" autoComplete="off" maxLength={10}
+              disabled={bloqueado} readOnly={edicion} aria-invalid={Boolean(errores.numero)} aria-describedby={descripcionError("numero")}
+              onChange={(event) => cambiar("numero", event.target.value.toUpperCase())} onBlur={() => tocar("numero")}
+              className={`${claseControl(errores.numero)} read-only:bg-tertiary`} />
+          </Campo>
+          <Campo id="vuelo-horaSalida" etiqueta="Hora de salida" error={errores.horaSalida}>
+            <input id="vuelo-horaSalida" type="time" value={datos.horaSalida} disabled={bloqueado}
+              aria-invalid={Boolean(errores.horaSalida)} aria-describedby={descripcionError("horaSalida")}
+              onChange={(event) => cambiar("horaSalida", event.target.value)} onBlur={() => tocar("horaSalida")}
+              className={claseControl(errores.horaSalida)} />
+          </Campo>
+          <Campo id="vuelo-horaLlegada" etiqueta="Hora de llegada" error={errores.horaLlegada}>
+            <input id="vuelo-horaLlegada" type="time" value={datos.horaLlegada} disabled={bloqueado}
+              aria-invalid={Boolean(errores.horaLlegada)} aria-describedby={descripcionError("horaLlegada")}
+              onChange={(event) => cambiar("horaLlegada", event.target.value)} onBlur={() => tocar("horaLlegada")}
+              className={claseControl(errores.horaLlegada)} />
+          </Campo>
+          {/* Su error se muestra en la hora de llegada: la regla depende de las dos. */}
+          <Campo id="vuelo-llegaDiaSiguiente" etiqueta="Día de llegada">
+            <select id="vuelo-llegaDiaSiguiente" value={datos.llegaDiaSiguiente ? "siguiente" : "mismo"} disabled={bloqueado}
+              aria-describedby={descripcionError("horaLlegada")}
+              onChange={(event) => { cambiar("llegaDiaSiguiente", event.target.value === "siguiente"); tocar("horaLlegada"); }}
+              className={claseControl()}>
+              <option value="mismo">Mismo día</option>
+              <option value="siguiente">Día siguiente</option>
+            </select>
+          </Campo>
+        </div>
+        <ResumenLlegada datos={datos} />
       </div>
       <div className="grid gap-5 sm:grid-cols-2">
         {(["origen", "destino"] as const).map((campo) => (

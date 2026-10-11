@@ -5,6 +5,7 @@ import { db } from "@/src/prisma/db";
 import { fechaDeColumna, horaDeColumna } from "./fechas";
 import type {
   DetalleVuelo,
+  EstadoViaje,
   EstadoVuelo,
   OpcionAeropuerto,
   OpcionAvion,
@@ -21,73 +22,95 @@ export function filtroViajesPendientes(ahora = new Date()): Prisma.viajeWhereInp
   return { fecha_partida: { gt: ahora }, estado: { notIn: ["cancelado", "finalizado"] } };
 }
 
+/** Viajes que todavía no llegaron y siguen en pie: incluye los que están volando. */
+export function filtroViajesEnPie(ahora = new Date()): Prisma.viajeWhereInput {
+  return { fecha_llegada: { gt: ahora }, estado: { notIn: ["cancelado", "finalizado"] } };
+}
+
+/** Un vuelo está vigente si le queda al menos un viaje por salir sin cancelar. */
+export function filtroVueloVigente(ahora = new Date()): Prisma.vueloWhereInput {
+  return { viaje: { some: filtroViajesPendientes(ahora) } };
+}
+
 /** Las reservas canceladas o reembolsadas ya no se ven afectadas por un cambio. */
 export const filtroPasajesActivos: Prisma.pasajeWhereInput = {
   pago: { estado_compra: { in: ["pendiente", "pagado"] } },
 };
+
+const seleccionAeropuerto = { select: { codigo_iata: true, ciudad: true, estado: true } } as const;
 
 const seleccionVuelo = {
   id_vuelo: true,
   numero: true,
   hora_salida: true,
   hora_llegada: true,
+  llega_dia_siguiente: true,
   dias_operacion: true,
   inicio_disp: true,
   fin_disp: true,
-  aeropuerto_vuelo_origenToaeropuerto: { select: { codigo_iata: true, ciudad: true } },
-  aeropuerto_vuelo_destinoToaeropuerto: { select: { codigo_iata: true, ciudad: true } },
+  aeropuerto_vuelo_origenToaeropuerto: seleccionAeropuerto,
+  aeropuerto_vuelo_destinoToaeropuerto: seleccionAeropuerto,
 } satisfies Prisma.vueloSelect;
 
 type FilaVuelo = Prisma.vueloGetPayload<{ select: typeof seleccionVuelo }>;
 
-function aListado(vuelo: FilaVuelo, estado: EstadoVuelo): VueloListado {
+function aListado(vuelo: FilaVuelo, estado: EstadoVuelo, motivoCancelacion: string | null): VueloListado {
+  const origen = vuelo.aeropuerto_vuelo_origenToaeropuerto;
+  const destino = vuelo.aeropuerto_vuelo_destinoToaeropuerto;
   return {
     id: vuelo.id_vuelo,
     numero: vuelo.numero,
-    origen: vuelo.aeropuerto_vuelo_origenToaeropuerto.codigo_iata,
-    destino: vuelo.aeropuerto_vuelo_destinoToaeropuerto.codigo_iata,
-    origenCiudad: vuelo.aeropuerto_vuelo_origenToaeropuerto.ciudad,
-    destinoCiudad: vuelo.aeropuerto_vuelo_destinoToaeropuerto.ciudad,
+    origen: origen.codigo_iata,
+    destino: destino.codigo_iata,
+    origenCiudad: origen.ciudad,
+    destinoCiudad: destino.ciudad,
     horaSalida: horaDeColumna(vuelo.hora_salida),
     horaLlegada: horaDeColumna(vuelo.hora_llegada),
+    llegaDiaSiguiente: vuelo.llega_dia_siguiente,
     dias: [...vuelo.dias_operacion].sort((a, b) => a - b),
     inicio: fechaDeColumna(vuelo.inicio_disp),
     fin: fechaDeColumna(vuelo.fin_disp),
     estado,
+    origenDeBaja: origen.estado === "de_baja",
+    destinoDeBaja: destino.estado === "de_baja",
+    motivoCancelacion: estado === "cancelado" ? motivoCancelacion : null,
   };
 }
 
-function estadoDelVuelo(total: number, cancelados: number, pendientes: number): EstadoVuelo {
+/**
+ * Sin viajes por salir, el vuelo está cancelado si su último viaje se canceló (por ejemplo,
+ * por la baja de un aeropuerto o avión); si no, terminó de operar.
+ */
+function estadoDelVuelo(pendientes: number, ultimoViaje: EstadoViaje | undefined): EstadoVuelo {
   if (pendientes > 0) return "programado";
-  if (total > 0 && cancelados === total) return "cancelado";
+  if (ultimoViaje === "cancelado") return "cancelado";
   return "finalizado";
 }
 
-export async function obtenerVuelos(): Promise<VueloListado[]> {
-  // Las tres consultas van en paralelo: cada ida y vuelta a Neon suma latencia.
-  const [vuelos, cancelados, pendientes] = await Promise.all([
-    db.vuelo.findMany({
-      orderBy: [{ inicio_disp: "desc" }, { numero: "asc" }],
-      select: {
-        ...seleccionVuelo,
-        _count: { select: { viaje: true } },
+export async function obtenerVuelos(where: Prisma.vueloWhereInput = {}): Promise<VueloListado[]> {
+  const vuelos = await db.vuelo.findMany({
+    where,
+    orderBy: [{ inicio_disp: "desc" }, { numero: "asc" }],
+    select: {
+      ...seleccionVuelo,
+      _count: { select: { viaje: { where: filtroViajesPendientes() } } },
+      // El último viaje define si el vuelo terminó cancelado o finalizado.
+      viaje: {
+        orderBy: { fecha_partida: "desc" },
+        take: 1,
+        select: { estado: true, historial_estados: { where: { estado_viaje: "cancelado" }, select: { motivo: true } } },
       },
-    }),
-    contarViajesPorVuelo({ estado: "cancelado" }),
-    contarViajesPorVuelo(filtroViajesPendientes()),
-  ]);
+    },
+  });
 
-  return vuelos.map((vuelo) =>
-    aListado(
+  return vuelos.map((vuelo) => {
+    const ultimo = vuelo.viaje[0];
+    return aListado(
       vuelo,
-      estadoDelVuelo(vuelo._count.viaje, cancelados.get(vuelo.id_vuelo) ?? 0, pendientes.get(vuelo.id_vuelo) ?? 0),
-    ),
-  );
-}
-
-async function contarViajesPorVuelo(where: Prisma.viajeWhereInput) {
-  const grupos = await db.viaje.groupBy({ by: ["id_vuelo"], where, _count: { _all: true } });
-  return new Map(grupos.map((grupo) => [grupo.id_vuelo, grupo._count._all]));
+      estadoDelVuelo(vuelo._count.viaje, ultimo?.estado),
+      ultimo?.historial_estados[0]?.motivo ?? null,
+    );
+  });
 }
 
 export async function obtenerDetalleVuelo(id: number, ahora = new Date()): Promise<DetalleVuelo | null> {
@@ -104,7 +127,7 @@ export async function obtenerDetalleVuelo(id: number, ahora = new Date()): Promi
           fecha_partida: true,
           fecha_llegada: true,
           estado: true,
-          avion: { select: { matricula: true } },
+          avion: { select: { matricula: true, estado: true } },
           historial_estados: { where: { estado_viaje: "cancelado" }, select: { motivo: true, fecha: true } },
           _count: { select: { pasaje: { where: filtroPasajesActivos } } },
         },
@@ -121,6 +144,7 @@ export async function obtenerDetalleVuelo(id: number, ahora = new Date()): Promi
       llegada: viaje.fecha_llegada.toISOString(),
       estado: viaje.estado,
       avion: viaje.avion.matricula,
+      avionDeBaja: viaje.avion.estado === "de_baja",
       reservasActivas: viaje._count.pasaje,
       yaSalio: viaje.fecha_partida <= ahora,
       motivoCancelacion: cancelacion?.motivo ?? null,
@@ -128,13 +152,13 @@ export async function obtenerDetalleVuelo(id: number, ahora = new Date()): Promi
       bloqueoCancelacion: bloqueoCancelacion(viaje.estado, viaje.fecha_partida, ahora),
     };
   });
-  const cancelados = viajes.filter((viaje) => viaje.estado === "cancelado").length;
   const pendientes = vuelo.viaje.filter(
     (viaje) => viaje.fecha_partida > ahora && viaje.estado !== "cancelado" && viaje.estado !== "finalizado",
   ).length;
+  const ultimo = viajes.at(-1);
 
   return {
-    ...aListado(vuelo, estadoDelVuelo(viajes.length, cancelados, pendientes)),
+    ...aListado(vuelo, estadoDelVuelo(pendientes, ultimo?.estado), ultimo?.motivoCancelacion ?? null),
     precioEconomy: vuelo.precio_economy.toString(),
     precioPrimera: vuelo.precio_primera.toString(),
     viajes,
@@ -178,6 +202,7 @@ export async function obtenerVueloEditable(id: number): Promise<VueloEditable | 
       numero: vuelo.numero,
       horaSalida: horaDeColumna(vuelo.hora_salida),
       horaLlegada: horaDeColumna(vuelo.hora_llegada),
+      llegaDiaSiguiente: vuelo.llega_dia_siguiente,
       origen: String(vuelo.origen),
       destino: String(vuelo.destino),
       dias: [...vuelo.dias_operacion].sort((a, b) => a - b),
@@ -190,16 +215,19 @@ export async function obtenerVueloEditable(id: number): Promise<VueloEditable | 
   };
 }
 
+/** Lo dado de baja no se ofrece para crear ni editar vuelos. */
 export async function obtenerOpcionesFormulario(): Promise<{
   aeropuertos: OpcionAeropuerto[];
   aviones: OpcionAvion[];
 }> {
   const [aeropuertos, aviones] = await Promise.all([
     db.aeropuerto.findMany({
+      where: { estado: "activo" },
       orderBy: { ciudad: "asc" },
       select: { id_aeropuerto: true, codigo_iata: true, nombre: true, ciudad: true },
     }),
     db.avion.findMany({
+      where: { estado: "activo" },
       orderBy: { modelo: "asc" },
       select: { id_avion: true, matricula: true, modelo: true, capacidad_economy: true, capacidad_primera: true },
     }),

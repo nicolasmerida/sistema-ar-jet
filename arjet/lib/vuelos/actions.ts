@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@/src/generated/prisma/client";
 import { db } from "@/src/prisma/db";
+import { OPCIONES_TRANSACCION, cancelarViajesEnTx } from "./cancelacion";
 import { bloqueoCancelacion, filtroPasajesActivos, filtroViajesPendientes } from "./data";
 import {
   ZONA_HORARIA,
@@ -13,6 +14,7 @@ import {
   horaDeColumna,
   hoyEnArgentina,
   instanteLocal,
+  sumarDias,
 } from "./fechas";
 import type { ResultadoAccionVuelo } from "./tipos";
 import {
@@ -27,8 +29,6 @@ import {
 
 // TODO: verificar el rol administrador cuando el equipo implemente el login.
 const RUTA_VUELOS = "/dashboard/vuelos";
-// Varias consultas por transacción contra Neon superan el límite por defecto de 5 s.
-const OPCIONES_TRANSACCION = { maxWait: 10_000, timeout: 20_000 };
 
 const MENSAJES = {
   datosInvalidos: "Revisá los campos marcados en rojo",
@@ -38,6 +38,9 @@ const MENSAJES = {
   sinViajes: "El período elegido no tiene ningún día de operación con salidas futuras",
   noEditable: "No se puede editar un vuelo cancelado o finalizado",
   avionInexistente: "El avión seleccionado ya no existe",
+  avionDeBaja: "El avión seleccionado fue dado de baja",
+  aeropuertoInexistente: "El aeropuerto seleccionado ya no existe. Actualizá la página",
+  aeropuertoDeBaja: "El aeropuerto seleccionado fue dado de baja",
   avionOcupado: "El avión ya tiene viajes asignados que se superponen con estos horarios",
   avionChico: "El avión elegido tiene menos asientos que los pasajes ya vendidos en alguna clase",
   horarioPasado: "El nuevo horario dejaría un viaje de hoy con la salida en el pasado",
@@ -63,18 +66,18 @@ export async function crearVuelo(entrada: unknown): Promise<ResultadoAccionVuelo
   const idAvion = Number(datos.avion);
 
   const ahora = new Date();
+  // Los días de operación son días de salida; la llegada puede caer al día siguiente.
   const viajes = fechasDeOperacion(datos.inicio, datos.fin, datos.dias)
     .map((fecha) => ({
       fecha_partida: instanteLocal(fecha, datos.horaSalida),
-      fecha_llegada: instanteLocal(fecha, datos.horaLlegada),
+      fecha_llegada: instanteLocal(datos.llegaDiaSiguiente ? sumarDias(fecha, 1) : fecha, datos.horaLlegada),
     }))
     .filter((viaje) => viaje.fecha_partida > ahora);
   if (viajes.length === 0) return { ok: false, mensaje: MENSAJES.sinViajes, errores: { dias: MENSAJES.sinViajes } };
 
   try {
     await db.$transaction(async (tx) => {
-      const avion = await tx.avion.findUnique({ where: { id_avion: idAvion }, select: { id_avion: true } });
-      if (!avion) rechazar(MENSAJES.avionInexistente, { avion: MENSAJES.avionInexistente });
+      await verificarActivos(tx, { origen: Number(datos.origen), destino: Number(datos.destino), avion: idAvion });
 
       // Mismo número en un período que se superpone (la base también lo impide).
       const repetido = await tx.vuelo.findFirst({
@@ -94,6 +97,7 @@ export async function crearVuelo(entrada: unknown): Promise<ResultadoAccionVuelo
           destino: Number(datos.destino),
           hora_salida: columnaHora(datos.horaSalida),
           hora_llegada: columnaHora(datos.horaLlegada),
+          llega_dia_siguiente: datos.llegaDiaSiguiente,
           dias_operacion: datos.dias,
           inicio_disp: columnaFecha(datos.inicio),
           fin_disp: columnaFecha(datos.fin),
@@ -129,10 +133,11 @@ export async function actualizarVuelo(id: unknown, entrada: unknown): Promise<Re
     await db.$transaction(async (tx) => {
       const vuelo = await tx.vuelo.findUnique({
         where: { id_vuelo: id },
-        select: { numero: true, hora_salida: true, hora_llegada: true },
+        select: { numero: true, origen: true, destino: true, hora_salida: true, hora_llegada: true, llega_dia_siguiente: true },
       });
       if (!vuelo) rechazar(MENSAJES.inexistente);
       numero = vuelo.numero;
+      const avion = await verificarActivos(tx, { origen: vuelo.origen, destino: vuelo.destino, avion: idAvion });
 
       // Solo se modifican los viajes que todavía no salieron ni se cancelaron.
       const ahora = new Date();
@@ -143,11 +148,6 @@ export async function actualizarVuelo(id: unknown, entrada: unknown): Promise<Re
       if (viajes.length === 0) rechazar(MENSAJES.noEditable);
       const ids = viajes.map((viaje) => viaje.id_viaje);
 
-      const avion = await tx.avion.findUnique({
-        where: { id_avion: idAvion },
-        select: { capacidad_economy: true, capacidad_primera: true },
-      });
-      if (!avion) rechazar(MENSAJES.avionInexistente, { avion: MENSAJES.avionInexistente });
       if (viajes.some((viaje) => viaje.id_avion !== idAvion)) {
         const vendidos = await tx.pasaje.groupBy({
           by: ["id_viaje", "clase"],
@@ -161,7 +161,9 @@ export async function actualizarVuelo(id: unknown, entrada: unknown): Promise<Re
       }
 
       const cambioHorario =
-        horaDeColumna(vuelo.hora_salida) !== datos.horaSalida || horaDeColumna(vuelo.hora_llegada) !== datos.horaLlegada;
+        horaDeColumna(vuelo.hora_salida) !== datos.horaSalida ||
+        horaDeColumna(vuelo.hora_llegada) !== datos.horaLlegada ||
+        vuelo.llega_dia_siguiente !== datos.llegaDiaSiguiente;
       if (cambioHorario) {
         const quedaEnElPasado = viajes.some(
           (viaje) => instanteLocal(fechaLocal(viaje.fecha_partida), datos.horaSalida) <= ahora,
@@ -174,15 +176,18 @@ export async function actualizarVuelo(id: unknown, entrada: unknown): Promise<Re
         data: {
           hora_salida: columnaHora(datos.horaSalida),
           hora_llegada: columnaHora(datos.horaLlegada),
+          llega_dia_siguiente: datos.llegaDiaSiguiente,
           precio_economy: datos.precioEconomy,
           precio_primera: datos.precioPrimera,
         },
       });
-      // Cada viaje conserva su fecha local y toma los horarios nuevos.
+      // Cada viaje conserva su fecha local de salida y toma los horarios nuevos; las dos
+      // expresiones leen la fecha_partida anterior. La llegada suma un día si corresponde.
       await tx.$executeRaw`
         UPDATE viaje SET
           fecha_partida = ((fecha_partida AT TIME ZONE ${ZONA_HORARIA})::date + ${datos.horaSalida}::time) AT TIME ZONE ${ZONA_HORARIA},
-          fecha_llegada = ((fecha_partida AT TIME ZONE ${ZONA_HORARIA})::date + ${datos.horaLlegada}::time) AT TIME ZONE ${ZONA_HORARIA},
+          fecha_llegada = ((fecha_partida AT TIME ZONE ${ZONA_HORARIA})::date + ${datos.llegaDiaSiguiente ? 1 : 0}::int
+                           + ${datos.horaLlegada}::time) AT TIME ZONE ${ZONA_HORARIA},
           id_avion = ${idAvion}
         WHERE id_viaje = ANY(${ids}::int[])
           AND estado NOT IN ('cancelado', 'finalizado')`;
@@ -218,19 +223,9 @@ export async function cancelarViaje(idViaje: unknown, motivo: unknown): Promise<
       const bloqueo = bloqueoCancelacion(viaje.estado, viaje.fecha_partida);
       if (bloqueo) rechazar(bloqueo);
 
-      // La condición sobre el estado evita cancelar dos veces en pedidos simultáneos.
-      const cancelado = await tx.viaje.updateMany({
-        where: { id_viaje: idViaje, estado: { notIn: ["cancelado", "finalizado"] } },
-        data: { estado: "cancelado" },
-      });
-      if (cancelado.count === 0) rechazar("El viaje ya está cancelado");
-      await tx.estado.upsert({
-        where: { id_viaje_estado_viaje: { id_viaje: idViaje, estado_viaje: "cancelado" } },
-        create: { id_viaje: idViaje, estado_viaje: "cancelado", motivo: texto },
-        update: { motivo: texto, fecha: new Date() },
-      });
-      // TODO: notificar por email y marcar las compras como afectadas cuando existan esos módulos.
-      reservasAfectadas = await tx.pasaje.count({ where: { id_viaje: idViaje, ...filtroPasajesActivos } });
+      const cancelacion = await cancelarViajesEnTx(tx, { id_viaje: idViaje }, texto);
+      if (cancelacion.viajes === 0) rechazar("El viaje ya está cancelado");
+      reservasAfectadas = cancelacion.reservas;
     }, OPCIONES_TRANSACCION);
   } catch (error) {
     return manejarError(error);
@@ -257,6 +252,8 @@ function validarEntrada(
     numero: texto("numero"),
     horaSalida: texto("horaSalida"),
     horaLlegada: texto("horaLlegada"),
+    // Cualquier valor que no sea el booleano true cuenta como "mismo día".
+    llegaDiaSiguiente: objeto.llegaDiaSiguiente === true,
     origen: texto("origen"),
     destino: texto("destino"),
     dias,
@@ -275,6 +272,31 @@ function validarEntrada(
   return { ok: true, datos };
 }
 
+/**
+ * Origen, destino y avión tienen que seguir activos. FOR SHARE bloquea esas filas hasta el
+ * commit, así una baja simultánea espera y después ve el vuelo nuevo (y cancela sus viajes).
+ */
+async function verificarActivos(
+  tx: Prisma.TransactionClient,
+  { origen, destino, avion }: { origen: number; destino: number; avion: number },
+) {
+  const aeropuertos = await tx.$queryRaw<{ id_aeropuerto: number; estado: string }[]>`
+    SELECT id_aeropuerto, estado::text AS estado FROM aeropuerto
+    WHERE id_aeropuerto IN (${origen}, ${destino}) FOR SHARE`;
+  for (const [campo, id] of [["origen", origen], ["destino", destino]] as const) {
+    const aeropuerto = aeropuertos.find((fila) => fila.id_aeropuerto === id);
+    if (!aeropuerto) rechazar(MENSAJES.aeropuertoInexistente, { [campo]: MENSAJES.aeropuertoInexistente });
+    if (aeropuerto.estado !== "activo") rechazar(MENSAJES.aeropuertoDeBaja, { [campo]: MENSAJES.aeropuertoDeBaja });
+  }
+
+  const [fila] = await tx.$queryRaw<{ capacidad_economy: number; capacidad_primera: number; estado: string }[]>`
+    SELECT capacidad_economy, capacidad_primera, estado::text AS estado FROM avion
+    WHERE id_avion = ${avion} FOR SHARE`;
+  if (!fila) rechazar(MENSAJES.avionInexistente, { avion: MENSAJES.avionInexistente });
+  if (fila.estado !== "activo") rechazar(MENSAJES.avionDeBaja, { avion: MENSAJES.avionDeBaja });
+  return fila;
+}
+
 function idValido(id: unknown): id is number {
   return typeof id === "number" && Number.isInteger(id) && id > 0 && id <= 2147483647;
 }
@@ -285,6 +307,10 @@ function manejarError(error: unknown): ResultadoAccionVuelo {
     return { ok: false, mensaje: MENSAJES.duplicado, errores: { numero: MENSAJES.duplicado } };
   if (restriccionViolada(error, "viaje_avion_sin_solapamiento"))
     return { ok: false, mensaje: MENSAJES.avionOcupado, errores: { avion: MENSAJES.avionOcupado } };
+  // Triggers de la baja lógica: normalmente lo frena antes verificarActivos.
+  if (restriccionViolada(error, "vuelo_aeropuertos_activos")) return { ok: false, mensaje: MENSAJES.aeropuertoDeBaja };
+  if (restriccionViolada(error, "viaje_avion_activo"))
+    return { ok: false, mensaje: MENSAJES.avionDeBaja, errores: { avion: MENSAJES.avionDeBaja } };
   if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003")
     return { ok: false, mensaje: "El aeropuerto o el avión seleccionado ya no existe. Actualizá la página" };
 

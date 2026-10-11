@@ -1,11 +1,19 @@
 import Link from "next/link";
 import type { VueloListado } from "@/lib/vuelos/tipos";
+import { DeBaja } from "./de-baja";
 import { EstadoBadge } from "./estado-badge";
 import { diasDeOperacion, fechaCorta } from "./formato";
+import { Horario } from "./horario";
 
 const COLUMNAS = ["N° de vuelo", "Ruta", "Horario", "Opera", "Vigencia", "Estado", "Acciones"];
 
-export function VuelosTable({ vuelos, hayFiltros }: { vuelos: VueloListado[]; hayFiltros: boolean }) {
+export function VuelosTable({ vuelos, hayFiltros = false, mensajeVacio, mostrarMotivo = false }: {
+  vuelos: VueloListado[];
+  hayFiltros?: boolean;
+  mensajeVacio?: string;
+  /** Muestra debajo del estado el motivo de los vuelos cancelados (historial). */
+  mostrarMotivo?: boolean;
+}) {
   return (
     <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-background shadow-sm">
       <div className="overflow-x-auto">
@@ -16,16 +24,22 @@ export function VuelosTable({ vuelos, hayFiltros }: { vuelos: VueloListado[]; ha
           <tbody className="divide-y divide-zinc-200">
             {vuelos.length === 0 ? (
               <tr><td colSpan={COLUMNAS.length} className="px-5 py-12 text-center text-zinc-500">
-                {hayFiltros ? "No hay vuelos que coincidan con los filtros." : "Todavía no hay vuelos registrados."}
+                {mensajeVacio ?? (hayFiltros ? "No hay vuelos que coincidan con los filtros." : "Todavía no hay vuelos registrados.")}
               </td></tr>
             ) : vuelos.map((vuelo) => (
               <tr key={vuelo.id} className="hover:bg-tertiary/60">
                 <td className="px-5 py-4 font-mono font-medium">{vuelo.numero}</td>
-                <td className="px-5 py-4" title={`${vuelo.origenCiudad} → ${vuelo.destinoCiudad}`}>{vuelo.origen} → {vuelo.destino}</td>
-                <td className="px-5 py-4 whitespace-nowrap">{vuelo.horaSalida} – {vuelo.horaLlegada}</td>
+                <td className="px-5 py-4" title={`${vuelo.origenCiudad} → ${vuelo.destinoCiudad}`}>
+                  <DeBaja texto={vuelo.origen} deBaja={vuelo.origenDeBaja} tipo="aeropuerto" /> →{" "}
+                  <DeBaja texto={vuelo.destino} deBaja={vuelo.destinoDeBaja} tipo="aeropuerto" />
+                </td>
+                <td className="px-5 py-4"><Horario salida={vuelo.horaSalida} llegada={vuelo.horaLlegada} llegaDiaSiguiente={vuelo.llegaDiaSiguiente} /></td>
                 <td className="px-5 py-4 text-zinc-600">{diasDeOperacion(vuelo.dias)}</td>
                 <td className="px-5 py-4 whitespace-nowrap text-zinc-600">{fechaCorta(vuelo.inicio)} – {fechaCorta(vuelo.fin)}</td>
-                <td className="px-5 py-4"><EstadoBadge estado={vuelo.estado} /></td>
+                <td className="px-5 py-4">
+                  <EstadoBadge estado={vuelo.estado} />
+                  {mostrarMotivo && vuelo.motivoCancelacion && <p className="mt-1.5 max-w-xs text-xs text-zinc-500">Motivo: {vuelo.motivoCancelacion}</p>}
+                </td>
                 <td className="px-5 py-4"><div className="flex justify-end gap-4 whitespace-nowrap">
                   {vuelo.estado === "programado" ? (
                     <>

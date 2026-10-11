@@ -29,7 +29,7 @@ export type PropsSeccion = {
 };
 
 const VACIO: DatosVuelo = {
-  numero: "", horaSalida: "", horaLlegada: "", origen: "", destino: "", dias: [],
+  numero: "", horaSalida: "", horaLlegada: "", llegaDiaSiguiente: false, origen: "", destino: "", dias: [],
   inicio: "", fin: "", avion: "", precioEconomy: "", precioPrimera: "",
 };
 const ERROR_CONEXION = "No se pudieron guardar los datos. Por favor, contactá al equipo técnico";

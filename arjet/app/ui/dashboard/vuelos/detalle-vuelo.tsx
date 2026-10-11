@@ -1,14 +1,27 @@
 import Link from "next/link";
 import type { DetalleVuelo } from "@/lib/vuelos/tipos";
+import { DeBaja } from "./de-baja";
 import { EstadoBadge } from "./estado-badge";
 import { diasDeOperacion, fechaCorta, precio } from "./formato";
+import { Horario } from "./horario";
 import { ViajesTable } from "./viajes-table";
 import { VolverAVuelos } from "./volver-a-vuelos";
 
 export function DetalleVueloVista({ vuelo }: { vuelo: DetalleVuelo }) {
   const datos = [
-    { etiqueta: "Ruta", valor: `${vuelo.origenCiudad} (${vuelo.origen}) → ${vuelo.destinoCiudad} (${vuelo.destino})` },
-    { etiqueta: "Horario", valor: `${vuelo.horaSalida} – ${vuelo.horaLlegada}` },
+    {
+      etiqueta: "Ruta",
+      valor: (
+        <>
+          {vuelo.origenCiudad} (<DeBaja texto={vuelo.origen} deBaja={vuelo.origenDeBaja} tipo="aeropuerto" />) →{" "}
+          {vuelo.destinoCiudad} (<DeBaja texto={vuelo.destino} deBaja={vuelo.destinoDeBaja} tipo="aeropuerto" />)
+        </>
+      ),
+    },
+    {
+      etiqueta: "Horario",
+      valor: <Horario salida={vuelo.horaSalida} llegada={vuelo.horaLlegada} llegaDiaSiguiente={vuelo.llegaDiaSiguiente} />,
+    },
     { etiqueta: "Opera", valor: diasDeOperacion(vuelo.dias) },
     { etiqueta: "Vigencia", valor: `${fechaCorta(vuelo.inicio)} – ${fechaCorta(vuelo.fin)}` },
     { etiqueta: "Precio Economy", valor: precio(vuelo.precioEconomy) },

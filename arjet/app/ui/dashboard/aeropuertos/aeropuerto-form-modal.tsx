@@ -14,6 +14,7 @@ import {
   validarAeropuerto,
 } from "@/lib/aeropuertos/validacion";
 import { MensajeError } from "./aviso";
+import { CampoAreaTexto, CampoTexto } from "./campos";
 import { Modal } from "./modal";
 
 type Campo = keyof DatosAeropuerto;
@@ -36,6 +37,7 @@ export function AeropuertoFormModal({
     ciudad: aeropuerto?.ciudad ?? "",
     pais: aeropuerto?.pais ?? "",
     direccion: aeropuerto?.direccion ?? "",
+    descripcion: aeropuerto?.descripcion ?? "",
   });
   const [tocados, setTocados] = useState<Partial<Record<Campo, boolean>>>({});
   const [erroresServidor, setErroresServidor] = useState<ErroresAeropuerto>({});
@@ -75,6 +77,7 @@ export function AeropuertoFormModal({
       ciudad: true,
       pais: true,
       direccion: true,
+      descripcion: true,
     });
     if (!guardadoHabilitado) return;
 
@@ -101,7 +104,7 @@ export function AeropuertoFormModal({
   return (
     <Modal
       titulo={aeropuerto ? "Editar aeropuerto" : "Nuevo aeropuerto"}
-      descripcion="Ingresá los datos del aeropuerto. Todos los campos son obligatorios."
+      descripcion="Ingresá los datos del aeropuerto. Los campos marcados con * son obligatorios."
       deshabilitarCerrar={guardando}
       onCerrar={cerrar}
     >
@@ -170,6 +173,18 @@ export function AeropuertoFormModal({
           onSalir={() => marcarTocado("direccion")}
         />
 
+        <CampoAreaTexto
+          id="descripcion"
+          label="Descripción"
+          valor={datos.descripcion}
+          error={errorDe("descripcion")}
+          maxLength={LARGO_MAXIMO.descripcion}
+          placeholder="Aeropuerto internacional. Opera vuelos de cabotaje y regionales."
+          disabled={guardando}
+          onCambiar={(valor) => cambiar("descripcion", valor)}
+          onSalir={() => marcarTocado("descripcion")}
+        />
+
         {errorGeneral && <MensajeError mensaje={errorGeneral} />}
 
         <div className="mt-2 flex justify-end gap-3">
@@ -191,69 +206,5 @@ export function AeropuertoFormModal({
         </div>
       </form>
     </Modal>
-  );
-}
-
-type CampoTextoProps = {
-  id: Campo;
-  label: string;
-  valor: string;
-  error?: string;
-  maxLength: number;
-  placeholder: string;
-  autoFocus?: boolean;
-  className?: string;
-  disabled?: boolean;
-  onCambiar: (valor: string) => void;
-  onSalir: () => void;
-};
-
-function CampoTexto({
-  id,
-  label,
-  valor,
-  error,
-  maxLength,
-  placeholder,
-  autoFocus,
-  className = "",
-  disabled = false,
-  onCambiar,
-  onSalir,
-}: CampoTextoProps) {
-  const idError = `${id}-error`;
-
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-sm font-medium text-foreground">
-        {label} <span className="text-red-600">*</span>
-      </label>
-      <input
-        id={id}
-        name={id}
-        type="text"
-        value={valor}
-        maxLength={maxLength}
-        placeholder={placeholder}
-        autoFocus={autoFocus}
-        autoComplete="off"
-        required
-        disabled={disabled}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={error ? idError : undefined}
-        onChange={(event) => onCambiar(event.target.value)}
-        onBlur={onSalir}
-        className={`rounded-md border px-3 py-2 text-sm outline-none transition placeholder:text-zinc-400 focus:ring-2 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-500 ${
-          error
-            ? "border-red-500 bg-red-50/40 focus:border-red-500 focus:ring-red-200"
-            : "border-zinc-300 focus:border-primary focus:ring-primary/30"
-        } ${className}`}
-      />
-      {error && (
-        <p id={idError} className="text-xs text-red-600">
-          {error}
-        </p>
-      )}
-    </div>
   );
 }

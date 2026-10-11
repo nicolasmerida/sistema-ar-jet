@@ -30,6 +30,18 @@ export function instanteLocal(fecha: string, hora: string) {
   return new Date(`${fecha}T${hora}:00${DESFASE_ARGENTINA}`);
 }
 
+/** Suma días a una fecha local (AAAA-MM-DD). */
+export function sumarDias(fecha: string, dias: number) {
+  const resultado = new Date(`${fecha}T00:00:00Z`);
+  resultado.setUTCDate(resultado.getUTCDate() + dias);
+  return resultado.toISOString().slice(0, 10);
+}
+
+/** Día de la semana ISO siguiente: el domingo (7) pasa al lunes (1). */
+export function diaSiguiente(dia: number) {
+  return (dia % 7) + 1;
+}
+
 /** Recorre el período [inicio, fin] y devuelve las fechas que caen en los días indicados. */
 export function fechasDeOperacion(inicio: string, fin: string, dias: number[]) {
   const fechas: string[] = [];

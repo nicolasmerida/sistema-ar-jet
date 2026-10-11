@@ -12,10 +12,15 @@ export type VueloListado = {
   destinoCiudad: string;
   horaSalida: string;
   horaLlegada: string;
+  llegaDiaSiguiente: boolean;
   dias: number[];
   inicio: string;
   fin: string;
   estado: EstadoVuelo;
+  origenDeBaja: boolean;
+  destinoDeBaja: boolean;
+  /** Motivo del último viaje cuando el vuelo quedó cancelado (por ejemplo, por una baja). */
+  motivoCancelacion: string | null;
 };
 
 export type OpcionAeropuerto = { id: number; codigo: string; nombre: string; ciudad: string };
@@ -36,6 +41,7 @@ export type ViajeDetalle = {
   llegada: string;
   estado: EstadoViaje;
   avion: string;
+  avionDeBaja: boolean;
   reservasActivas: number;
   /** Se calcula en el servidor para no depender del reloj del navegador. */
   yaSalio: boolean;
@@ -54,3 +60,18 @@ export type DetalleVuelo = VueloListado & {
 export type ResultadoAccionVuelo =
   | { ok: true; mensaje: string }
   | { ok: false; mensaje: string; errores?: ErroresVuelo };
+
+// Baja lógica de aeropuertos y aviones (cancela sus viajes pendientes).
+
+export type EstadoRegistro = "activo" | "de_baja";
+
+/** Viaje en pie que no se puede cancelar y por eso impide la baja. */
+export type ViajeBloqueante = { numero: string; partida: string; motivo: string };
+
+export type ResumenBaja = { vuelos: number; viajes: number; reservas: number; bloqueantes: ViajeBloqueante[] };
+
+export type ResultadoResumenBaja = { ok: true; resumen: ResumenBaja } | { ok: false; mensaje: string };
+
+export type ResultadoBaja =
+  | { ok: true; mensaje: string }
+  | { ok: false; mensaje: string; bloqueantes?: ViajeBloqueante[] };

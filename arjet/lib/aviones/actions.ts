@@ -3,16 +3,27 @@
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@/src/generated/prisma/client";
 import { db } from "@/src/prisma/db";
-import { filtroViajesVigentes } from "./data";
+import {
+  BajaBloqueada,
+  OPCIONES_TRANSACCION,
+  analizarBaja,
+  cancelarViajesPorBaja,
+  mensajeBaja,
+} from "@/lib/vuelos/cancelacion";
+import type { ResultadoBaja, ResultadoResumenBaja } from "@/lib/vuelos/tipos";
 import type { ResultadoAccionAvion } from "./tipos";
 import { validarAvion, type DatosAvion } from "./validacion";
 
 // TODO: verificar el rol administrador cuando el equipo implemente el login.
 const RUTA_AVIONES = "/dashboard/aviones";
+const RUTA_VUELOS = "/dashboard/vuelos";
 const DUPLICADO = "Ya existe un avión con esa matrícula";
+const DUPLICADO_DE_BAJA = "Ya existe un avión dado de baja con esa matrícula";
 const INEXISTENTE = "El avión ya no existe. Actualizá la página";
-const VUELOS_VIGENTES = "No se puede dar de baja un avión asignado a vuelos vigentes";
-const HISTORIAL = "No se puede eliminar un avión que tiene viajes registrados. Su historial debe conservarse";
+const DE_BAJA = "El avión está dado de baja y no se puede modificar";
+const YA_DE_BAJA = "El avión ya está dado de baja o no existe. Actualizá la página";
+const BAJA_BLOQUEADA = "Este avión no se puede dar de baja porque tiene vuelos vigentes que no se pueden cancelar";
+const ERROR_CONEXION = "No se pudieron guardar los datos. Por favor, contactá al equipo técnico";
 
 function validarEntrada(entrada: unknown):
   | { ok: true; datos: DatosAvion }
@@ -37,14 +48,19 @@ function idValido(id: unknown): id is number {
   return typeof id === "number" && Number.isInteger(id) && id > 0 && id <= 2147483647;
 }
 
+function duplicado(deBaja: boolean): ResultadoAccionAvion {
+  const mensaje = deBaja ? DUPLICADO_DE_BAJA : DUPLICADO;
+  return { ok: false, mensaje, errores: { matricula: mensaje } };
+}
+
 function errorDeGuardado(error: unknown): ResultadoAccionAvion {
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    if (error.code === "P2002") return { ok: false, mensaje: DUPLICADO, errores: { matricula: DUPLICADO } };
+    if (error.code === "P2002") return duplicado(false);
     if (error.code === "P2025") return { ok: false, mensaje: INEXISTENTE };
-    if (error.code === "P2003") return { ok: false, mensaje: HISTORIAL };
   }
   // No se envían detalles de conexión ni credenciales al navegador.
-  return { ok: false, mensaje: "No se pudieron guardar los datos. Por favor, contactá al equipo técnico" };
+  console.error("Error al guardar el avión:", error);
+  return { ok: false, mensaje: ERROR_CONEXION };
 }
 
 export async function crearAvion(entrada: unknown): Promise<ResultadoAccionAvion> {
@@ -52,12 +68,12 @@ export async function crearAvion(entrada: unknown): Promise<ResultadoAccionAvion
   if (!validado.ok) return validado.resultado;
   const datos = validado.datos;
   try {
-    // También contempla matrículas antiguas cargadas en minúsculas.
+    // También contempla matrículas antiguas cargadas en minúsculas y aviones dados de baja.
     const existente = await db.avion.findFirst({
       where: { matricula: { equals: datos.matricula, mode: "insensitive" } },
-      select: { id_avion: true },
+      select: { estado: true },
     });
-    if (existente) return { ok: false, mensaje: DUPLICADO, errores: { matricula: DUPLICADO } };
+    if (existente) return duplicado(existente.estado === "de_baja");
     await db.avion.create({
       data: {
         matricula: datos.matricula,
@@ -79,15 +95,20 @@ export async function actualizarAvion(id: unknown, entrada: unknown): Promise<Re
   if (!validado.ok) return validado.resultado;
   const datos = validado.datos;
   try {
-    // La matrícula permanece fija, como en el formulario de edición.
-    await db.avion.update({
-      where: { id_avion: id },
+    // La matrícula permanece fija, como en el formulario de edición. La condición sobre el
+    // estado impide editar un avión dado de baja, aunque la baja sea simultánea.
+    const actualizado = await db.avion.updateMany({
+      where: { id_avion: id, estado: "activo" },
       data: {
         modelo: datos.modelo,
         capacidad_economy: Number(datos.capacidadEconomy),
         capacidad_primera: Number(datos.capacidadPrimera),
       },
     });
+    if (actualizado.count === 0) {
+      const existe = await db.avion.count({ where: { id_avion: id } });
+      return { ok: false, mensaje: existe ? DE_BAJA : INEXISTENTE };
+    }
   } catch (error) {
     return errorDeGuardado(error);
   }
@@ -95,24 +116,51 @@ export async function actualizarAvion(id: unknown, entrada: unknown): Promise<Re
   return { ok: true, mensaje: "Avión actualizado correctamente" };
 }
 
-export async function eliminarAvion(id: unknown): Promise<ResultadoAccionAvion> {
+/** Lo que se cancelaría con la baja, para mostrarlo antes de confirmar. */
+export async function resumenBajaAvion(id: unknown): Promise<ResultadoResumenBaja> {
   if (!idValido(id)) return { ok: false, mensaje: INEXISTENTE };
   try {
-    const resultado = await db.$transaction(async (tx): Promise<ResultadoAccionAvion> => {
-      const avion = await tx.avion.findUnique({ where: { id_avion: id }, select: { id_avion: true } });
-      if (!avion) return { ok: false, mensaje: INEXISTENTE };
-      const vigentes = await tx.viaje.count({ where: { id_avion: id, ...filtroViajesVigentes() } });
-      if (vigentes > 0) return { ok: false, mensaje: VUELOS_VIGENTES };
-      // La condición atómica y la FK evitan borrar un avión asignado entre la
-      // comprobación y la baja, y conservan los viajes históricos/cancelados.
-      const baja = await tx.avion.deleteMany({ where: { id_avion: id, viaje: { none: {} } } });
-      if (baja.count === 0) return { ok: false, mensaje: HISTORIAL };
-      return { ok: true, mensaje: "Avión dado de baja correctamente" };
-    });
-    if (!resultado.ok) return resultado;
-    revalidatePath(RUTA_AVIONES);
-    return resultado;
+    const avion = await db.avion.findUnique({ where: { id_avion: id }, select: { estado: true } });
+    if (!avion || avion.estado !== "activo") return { ok: false, mensaje: YA_DE_BAJA };
+    return { ok: true, resumen: await analizarBaja(db, { id_avion: id }) };
   } catch (error) {
-    return errorDeGuardado(error);
+    console.error("Error al analizar la baja del avión:", error);
+    return { ok: false, mensaje: ERROR_CONEXION };
   }
 }
+
+/**
+ * Baja lógica: el avión queda "de baja" y se cancelan sus viajes pendientes.
+ * Si algún viaje en pie no se puede cancelar, se rechaza todo y no cambia nada.
+ */
+export async function darDeBajaAvion(id: unknown): Promise<ResultadoBaja> {
+  if (!idValido(id)) return { ok: false, mensaje: INEXISTENTE };
+
+  let mensaje = "";
+  try {
+    await db.$transaction(async (tx) => {
+      // El UPDATE deja la fila bloqueada hasta el commit: asignar el avión a un vuelo
+      // espera (FOR SHARE) y después ve que está de baja.
+      const marcado = await tx.avion.updateMany({
+        where: { id_avion: id, estado: "activo" },
+        data: { estado: "de_baja", fecha_baja: new Date() },
+      });
+      if (marcado.count === 0) throw new BajaRechazada(YA_DE_BAJA);
+      const { matricula } = await tx.avion.findUniqueOrThrow({ where: { id_avion: id }, select: { matricula: true } });
+
+      const cancelacion = await cancelarViajesPorBaja(tx, { id_avion: id }, `Baja del avión ${matricula}`);
+      mensaje = mensajeBaja(`Avión ${matricula}`, cancelacion);
+    }, OPCIONES_TRANSACCION);
+  } catch (error) {
+    if (error instanceof BajaBloqueada) return { ok: false, mensaje: BAJA_BLOQUEADA, bloqueantes: error.bloqueantes };
+    if (error instanceof BajaRechazada) return { ok: false, mensaje: error.message };
+    console.error("Error al dar de baja el avión:", error);
+    return { ok: false, mensaje: ERROR_CONEXION };
+  }
+
+  revalidatePath(RUTA_AVIONES, "layout");
+  revalidatePath(RUTA_VUELOS, "layout");
+  return { ok: true, mensaje };
+}
+
+class BajaRechazada extends Error {}

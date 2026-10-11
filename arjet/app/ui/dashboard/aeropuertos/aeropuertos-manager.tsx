@@ -3,16 +3,17 @@
 import { Plus } from "lucide-react";
 import { useCallback, useState } from "react";
 import type { AeropuertoListado } from "@/lib/aeropuertos/data";
+import { type FiltroEstado, SelectorEstado, filtrarPorEstado } from "../baja/filtro-estado";
 import { AeropuertoFormModal } from "./aeropuerto-form-modal";
 import { AeropuertosTable } from "./aeropuertos-table";
 import { Aviso, type DatosAviso } from "./aviso";
+import { BajaAeropuertoModal } from "./baja-aeropuerto-modal";
 import { Buscador } from "./buscador";
-import { EliminarAeropuertoModal } from "./eliminar-aeropuerto-modal";
 
 type ModalAbierto =
   | { tipo: "crear" }
   | { tipo: "editar"; aeropuerto: AeropuertoListado }
-  | { tipo: "eliminar"; aeropuerto: AeropuertoListado }
+  | { tipo: "baja"; aeropuerto: AeropuertoListado }
   | null;
 
 export function AeropuertosManager({
@@ -21,6 +22,7 @@ export function AeropuertosManager({
   aeropuertos: AeropuertoListado[];
 }) {
   const [busqueda, setBusqueda] = useState("");
+  const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>("activo");
   const [modal, setModal] = useState<ModalAbierto>(null);
   const [aviso, setAviso] = useState<DatosAviso | null>(null);
 
@@ -32,7 +34,10 @@ export function AeropuertosManager({
     setAviso({ tipo: "exito", mensaje });
   }
 
-  const filtrados = filtrarAeropuertos(aeropuertos, busqueda);
+  const filtrados = filtrarAeropuertos(
+    filtrarPorEstado(aeropuertos, filtroEstado),
+    busqueda,
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -56,13 +61,20 @@ export function AeropuertosManager({
         </button>
       </div>
 
-      <Buscador valor={busqueda} onCambiar={setBusqueda} />
+      <div className="flex flex-wrap items-center gap-3">
+        <Buscador valor={busqueda} onCambiar={setBusqueda} />
+        <SelectorEstado
+          valor={filtroEstado}
+          onCambiar={setFiltroEstado}
+          etiqueta="Mostrar aeropuertos"
+        />
+      </div>
 
       <AeropuertosTable
         aeropuertos={filtrados}
-        hayBusqueda={busqueda.trim() !== ""}
+        mensajeVacio={mensajeVacio(aeropuertos.length, busqueda, filtroEstado)}
         onEditar={(aeropuerto) => setModal({ tipo: "editar", aeropuerto })}
-        onEliminar={(aeropuerto) => setModal({ tipo: "eliminar", aeropuerto })}
+        onDarDeBaja={(aeropuerto) => setModal({ tipo: "baja", aeropuerto })}
       />
 
       {modal?.tipo === "crear" && (
@@ -79,18 +91,26 @@ export function AeropuertosManager({
           onGuardado={finalizarConExito}
         />
       )}
-      {modal?.tipo === "eliminar" && (
-        <EliminarAeropuertoModal
+      {modal?.tipo === "baja" && (
+        <BajaAeropuertoModal
           key={modal.aeropuerto.id}
           aeropuerto={modal.aeropuerto}
           onCerrar={cerrarModal}
-          onEliminado={finalizarConExito}
+          onDadoDeBaja={finalizarConExito}
         />
       )}
 
       {aviso && <Aviso {...aviso} onCerrar={cerrarAviso} />}
     </div>
   );
+}
+
+function mensajeVacio(total: number, busqueda: string, filtro: FiltroEstado) {
+  if (total === 0) return "Todavía no hay aeropuertos cargados.";
+  if (busqueda.trim()) return "No hay aeropuertos que coincidan con la búsqueda.";
+  if (filtro === "de_baja") return "No hay aeropuertos dados de baja.";
+  if (filtro === "activo") return "No hay aeropuertos activos.";
+  return "Todavía no hay aeropuertos cargados.";
 }
 
 function normalizarTexto(texto: string) {

@@ -1,4 +1,4 @@
-import { DIAS_SEMANA, ZONA_HORARIA } from "@/lib/vuelos/fechas";
+import { DIAS_SEMANA, ZONA_HORARIA, fechaLocal } from "@/lib/vuelos/fechas";
 import type { EstadoViaje, EstadoVuelo } from "@/lib/vuelos/tipos";
 
 export const ETIQUETAS_ESTADO: Record<EstadoVuelo | EstadoViaje, string> = {
@@ -43,6 +43,28 @@ export function fechaDeInstante(instante: string) {
 
 export function horaDeInstante(instante: string) {
   return formatoHora.format(new Date(instante));
+}
+
+const formatoDiaYMes = new Intl.DateTimeFormat("es-AR", {
+  timeZone: ZONA_HORARIA,
+  weekday: "short",
+  day: "2-digit",
+  month: "2-digit",
+});
+
+/** Día y mes local de un instante ISO, ej. "mié 15/10". */
+export function diaYMesDeInstante(instante: string) {
+  return formatoDiaYMes.format(new Date(instante)).replace(",", "");
+}
+
+/** Fecha local de un instante ISO, ej. "10/10/2026". */
+export function fechaCortaDeInstante(instante: string) {
+  return fechaCorta(fechaLocal(new Date(instante)));
+}
+
+/** Si dos instantes caen el mismo día en Argentina. */
+export function mismoDia(a: string, b: string) {
+  return fechaLocal(new Date(a)) === fechaLocal(new Date(b));
 }
 
 const formatoPrecio = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" });

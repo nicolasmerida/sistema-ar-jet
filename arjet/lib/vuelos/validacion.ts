@@ -5,6 +5,8 @@ export type DatosVuelo = {
   numero: string;
   horaSalida: string;
   horaLlegada: string;
+  /** Respecto de cada salida: false = mismo día, true = día siguiente (como máximo). */
+  llegaDiaSiguiente: boolean;
   origen: string;
   destino: string;
   dias: number[];
@@ -73,11 +75,21 @@ export function tieneErrores(errores: ErroresVuelo) {
   return Object.keys(errores).length > 0;
 }
 
+/** Combinación de horas y día de llegada; la base repite la regla en vuelo_horario_valido. */
+export function errorLlegada({ horaSalida, horaLlegada, llegaDiaSiguiente }: DatosVuelo) {
+  if (!esHora(horaLlegada)) return "La hora de llegada es obligatoria";
+  if (!esHora(horaSalida)) return undefined;
+  if (!llegaDiaSiguiente && horaLlegada <= horaSalida)
+    return "La hora de llegada debe ser posterior a la de salida. Si llega al día siguiente, marcalo";
+  // Al día siguiente, una llegada posterior a la hora de salida superaría las 24 h.
+  if (llegaDiaSiguiente && horaLlegada > horaSalida) return "Un vuelo no puede durar más de 24 horas";
+  return undefined;
+}
+
 function validarHorarios(datos: DatosVuelo, errores: ErroresVuelo) {
   if (!esHora(datos.horaSalida)) errores.horaSalida = "La hora de salida es obligatoria";
-  if (!esHora(datos.horaLlegada)) errores.horaLlegada = "La hora de llegada es obligatoria";
-  else if (esHora(datos.horaSalida) && datos.horaLlegada <= datos.horaSalida)
-    errores.horaLlegada = "La hora de llegada debe ser posterior a la de salida";
+  const llegada = errorLlegada(datos);
+  if (llegada) errores.horaLlegada = llegada;
 }
 
 function validarPrecio(valor: string, campo: "precioEconomy" | "precioPrimera", errores: ErroresVuelo) {
@@ -91,6 +103,6 @@ function esFecha(valor: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(valor) && !Number.isNaN(Date.parse(`${valor}T00:00:00Z`));
 }
 
-function esHora(valor: string) {
+export function esHora(valor: string) {
   return /^([01]\d|2[0-3]):[0-5]\d$/.test(valor);
 }

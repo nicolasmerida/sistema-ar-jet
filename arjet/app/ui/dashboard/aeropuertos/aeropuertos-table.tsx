@@ -1,17 +1,20 @@
+import Link from "next/link";
 import type { AeropuertoListado } from "@/lib/aeropuertos/data";
+import { BadgeBaja } from "../baja/badge-baja";
+import { TooltipAeropuerto } from "./tooltip-aeropuerto";
 
 type AeropuertosTableProps = {
   aeropuertos: AeropuertoListado[];
-  hayBusqueda: boolean;
+  mensajeVacio: string;
   onEditar: (aeropuerto: AeropuertoListado) => void;
-  onEliminar: (aeropuerto: AeropuertoListado) => void;
+  onDarDeBaja: (aeropuerto: AeropuertoListado) => void;
 };
 
 export function AeropuertosTable({
   aeropuertos,
-  hayBusqueda,
+  mensajeVacio,
   onEditar,
-  onEliminar,
+  onDarDeBaja,
 }: AeropuertosTableProps) {
   return (
     <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
@@ -43,49 +46,75 @@ export function AeropuertosTable({
             {aeropuertos.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-5 py-10 text-center text-zinc-500">
-                  {hayBusqueda
-                    ? "No hay aeropuertos que coincidan con la búsqueda."
-                    : "Todavía no hay aeropuertos cargados."}
+                  {mensajeVacio}
                 </td>
               </tr>
             ) : (
-              aeropuertos.map((aeropuerto) => (
-                <tr key={aeropuerto.id} className="hover:bg-tertiary/60">
-                  <td className="px-5 py-4 font-mono font-semibold text-foreground">
-                    {aeropuerto.codigo}
-                  </td>
-                  <td className="px-5 py-4 text-foreground">
-                    {aeropuerto.nombre}
-                  </td>
-                  <td className="px-5 py-4 text-zinc-600">
-                    {aeropuerto.ciudad}
-                  </td>
-                  <td className="px-5 py-4 text-zinc-600">
-                    {aeropuerto.pais || "-"}
-                  </td>
-                  <td className="px-5 py-4">
-                    <EstadoBadge vuelosVigentes={aeropuerto.vuelosVigentes} />
-                  </td>
-                  <td className="px-5 py-4">
-                    <div className="flex justify-end gap-4">
-                      <button
-                        type="button"
-                        onClick={() => onEditar(aeropuerto)}
-                        className="font-medium text-secondary underline-offset-4 hover:underline"
-                      >
-                        Editar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onEliminar(aeropuerto)}
-                        className="font-medium text-red-600 underline-offset-4 hover:underline"
-                      >
-                        Eliminar
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
+              aeropuertos.map((aeropuerto) => {
+                const deBaja = aeropuerto.estado === "de_baja";
+                return (
+                  <tr
+                    key={aeropuerto.id}
+                    className={deBaja ? "bg-zinc-50 text-zinc-500" : "hover:bg-tertiary/60"}
+                  >
+                    <td className={`px-5 py-4 font-mono font-semibold ${deBaja ? "" : "text-foreground"}`}>
+                      <TooltipAeropuerto aeropuerto={aeropuerto}>
+                        {aeropuerto.codigo}
+                      </TooltipAeropuerto>
+                    </td>
+                    <td className={`px-5 py-4 ${deBaja ? "" : "text-foreground"}`}>
+                      <TooltipAeropuerto aeropuerto={aeropuerto} enfocable={false}>
+                        {aeropuerto.nombre}
+                      </TooltipAeropuerto>
+                    </td>
+                    <td className={`px-5 py-4 ${deBaja ? "" : "text-zinc-600"}`}>
+                      {aeropuerto.ciudad}
+                    </td>
+                    <td className={`px-5 py-4 ${deBaja ? "" : "text-zinc-600"}`}>
+                      {aeropuerto.pais || "-"}
+                    </td>
+                    <td className="px-5 py-4">
+                      {deBaja ? (
+                        <BadgeBaja fechaBaja={aeropuerto.fechaBaja} />
+                      ) : (
+                        <EstadoBadge vuelosVigentes={aeropuerto.vuelosVigentes} />
+                      )}
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="flex justify-end gap-4">
+                        {deBaja ? (
+                          <Link
+                            href={`/dashboard/aeropuertos/${aeropuerto.id}`}
+                            aria-label={`Ver detalle del aeropuerto ${aeropuerto.codigo}`}
+                            className="font-medium text-secondary underline-offset-4 hover:underline"
+                          >
+                            Ver detalle
+                          </Link>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => onEditar(aeropuerto)}
+                              aria-label={`Editar aeropuerto ${aeropuerto.codigo}`}
+                              className="font-medium text-secondary underline-offset-4 hover:underline"
+                            >
+                              Editar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => onDarDeBaja(aeropuerto)}
+                              aria-label={`Dar de baja el aeropuerto ${aeropuerto.codigo}`}
+                              className="font-medium text-red-600 underline-offset-4 hover:underline"
+                            >
+                              Dar de baja
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

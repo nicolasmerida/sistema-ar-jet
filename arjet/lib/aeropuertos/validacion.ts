@@ -6,6 +6,7 @@ export type DatosAeropuerto = {
   ciudad: string;
   pais: string;
   direccion: string;
+  descripcion: string;
 };
 
 export type ErroresAeropuerto = Partial<Record<keyof DatosAeropuerto, string>>;
@@ -16,6 +17,7 @@ export const LARGO_MAXIMO = {
   ciudad: 100,
   pais: 100,
   direccion: 200,
+  descripcion: 500,
 } as const;
 
 export function normalizarAeropuerto(datos: DatosAeropuerto): DatosAeropuerto {
@@ -25,6 +27,7 @@ export function normalizarAeropuerto(datos: DatosAeropuerto): DatosAeropuerto {
     ciudad: datos.ciudad.trim(),
     pais: datos.pais.trim(),
     direccion: datos.direccion.trim(),
+    descripcion: datos.descripcion.trim(),
   };
 }
 
@@ -43,13 +46,18 @@ export function validarAeropuerto(datos: DatosAeropuerto): ErroresAeropuerto {
   validarTexto(normalizados, errores, "pais", "El país es obligatorio");
   validarTexto(normalizados, errores, "direccion", "La dirección es obligatoria");
 
+  // La descripción es opcional: solo se controla el largo.
+  if (normalizados.descripcion.length > LARGO_MAXIMO.descripcion) {
+    errores.descripcion = `Máximo ${LARGO_MAXIMO.descripcion} caracteres`;
+  }
+
   return errores;
 }
 
 function validarTexto(
   datos: DatosAeropuerto,
   errores: ErroresAeropuerto,
-  campo: Exclude<keyof DatosAeropuerto, "codigo">,
+  campo: Exclude<keyof DatosAeropuerto, "codigo" | "descripcion">,
   mensajeObligatorio: string,
 ) {
   if (!datos[campo]) {
