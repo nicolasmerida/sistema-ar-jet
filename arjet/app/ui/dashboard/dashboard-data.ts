@@ -4,6 +4,7 @@ import {
   MapPin,
   Plane,
   PlaneTakeoff,
+  Users,
   XCircle,
 } from "lucide-react";
 
@@ -12,6 +13,7 @@ export const navigationItems = [
   { label: "Vuelos", href: "/dashboard/vuelos", icon: PlaneTakeoff },
   { label: "Aeropuertos", href: "/dashboard/aeropuertos", icon: MapPin },
   { label: "Aviones", href: "/dashboard/aviones", icon: Plane },
+  { label: "Usuarios", href: "/dashboard/usuarios", icon: Users },
 ];
 
 export const summaryCards = [

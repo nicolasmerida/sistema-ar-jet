@@ -1,7 +1,16 @@
+import { currentUser } from "@clerk/nextjs/server";
+import { SignOutButton } from "@clerk/nextjs";
 import { LogOut } from "lucide-react";
 import { ActivePageTitle } from "./nav-links";
 
-export function Topbar() {
+export async function Topbar() {
+  const user = await currentUser();
+  const nombre =
+    [user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
+    user?.primaryEmailAddress?.emailAddress ||
+    "Usuario";
+  const rol = (user?.publicMetadata?.role as string | undefined) ?? "Pasajero";
+
   return (
     <header className="flex min-h-20 items-center justify-between gap-4 border-b border-zinc-200 bg-white px-4 py-4 sm:px-6 lg:px-10">
       <div>
@@ -15,16 +24,18 @@ export function Topbar() {
 
       <div className="flex items-center gap-3">
         <div className="hidden text-right sm:block">
-          <p className="text-sm font-semibold text-foreground">Admin AR Jet</p>
-          <p className="text-xs text-zinc-500">Administrador</p>
+          <p className="text-sm font-semibold text-foreground">{nombre}</p>
+          <p className="text-xs capitalize text-zinc-500">{rol}</p>
         </div>
-        <button
-          type="button"
-          className="inline-flex items-center gap-2 rounded-md border border-secondary/20 px-3 py-2 text-sm font-semibold text-secondary transition hover:bg-secondary hover:text-secondary-foreground"
-        >
-          <LogOut className="size-4" aria-hidden="true" />
-          <span>Cerrar sesión</span>
-        </button>
+        <SignOutButton redirectUrl="/">
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded-md border border-secondary/20 px-3 py-2 text-sm font-semibold text-secondary transition hover:bg-secondary hover:text-secondary-foreground"
+          >
+            <LogOut className="size-4" aria-hidden="true" />
+            <span>Cerrar sesión</span>
+          </button>
+        </SignOutButton>
       </div>
     </header>
   );
