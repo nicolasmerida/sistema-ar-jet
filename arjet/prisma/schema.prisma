@@ -13,26 +13,26 @@ model administrador {
 }
 
 model aeropuerto {
-  id_aeropuerto                   Int     @id @default(autoincrement())
-  direccion                       String? @db.VarChar(200)
-  ciudad                          String  @db.VarChar(100)
-  pais                            String? @db.VarChar(100)
-  codigo_iata                     String  @unique @db.VarChar(3)
-  nombre                          String  @db.VarChar(150)
-  descripcion                     String? @db.VarChar(500)
+  id_aeropuerto                   Int               @id @default(autoincrement())
+  direccion                       String?           @db.VarChar(200)
+  ciudad                          String            @db.VarChar(100)
+  pais                            String?           @db.VarChar(100)
+  codigo_iata                     String            @unique @db.VarChar(3)
+  nombre                          String            @db.VarChar(150)
+  descripcion                     String?           @db.VarChar(500)
   estado                          estado_registro_t @default(activo)
   fecha_baja                      DateTime?         @db.Timestamptz(6)
-  vuelo_vuelo_destinoToaeropuerto vuelo[] @relation("vuelo_destinoToaeropuerto")
-  vuelo_vuelo_origenToaeropuerto  vuelo[] @relation("vuelo_origenToaeropuerto")
+  vuelo_vuelo_destinoToaeropuerto vuelo[]           @relation("vuelo_destinoToaeropuerto")
+  vuelo_vuelo_origenToaeropuerto  vuelo[]           @relation("vuelo_origenToaeropuerto")
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model avion {
-  id_avion          Int     @id @default(autoincrement())
-  matricula         String  @unique
-  modelo            String
+  id_avion          Int               @id @default(autoincrement())
   capacidad_primera Int
   capacidad_economy Int
+  matricula         String            @unique
+  modelo            String
   estado            estado_registro_t @default(activo)
   fecha_baja        DateTime?         @db.Timestamptz(6)
   viaje             viaje[]
@@ -100,9 +100,10 @@ model reserva {
 
 model usuario {
   dni              String         @id @db.VarChar(20)
+  clerk_id         String         @unique @db.VarChar(100)
   nombre           String         @db.VarChar(100)
   apellido         String         @db.VarChar(100)
-  contrasenia_hash String         @db.VarChar(255)
+  contrasenia_hash String?        @db.VarChar(255)
   administrador    administrador?
   cliente          cliente?
   empleado         empleado?
@@ -139,8 +140,8 @@ model vuelo {
   numero                               String     @db.VarChar(10)
   hora_salida                          DateTime   @db.Time(0)
   hora_llegada                         DateTime   @db.Time(0)
-  llega_dia_siguiente                  Boolean    @default(false)
   dias_operacion                       Int[]      @db.SmallInt
+  llega_dia_siguiente                  Boolean    @default(false)
   viaje                                viaje[]
   aeropuerto_vuelo_destinoToaeropuerto aeropuerto @relation("vuelo_destinoToaeropuerto", fields: [destino], references: [id_aeropuerto], onDelete: NoAction, onUpdate: NoAction)
   aeropuerto_vuelo_origenToaeropuerto  aeropuerto @relation("vuelo_origenToaeropuerto", fields: [origen], references: [id_aeropuerto], onDelete: NoAction, onUpdate: NoAction)
@@ -175,6 +176,7 @@ enum tipo_pago_t {
   efectivo
 }
 
+/// This enum is commented in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 enum estado_registro_t {
   activo
   de_baja
