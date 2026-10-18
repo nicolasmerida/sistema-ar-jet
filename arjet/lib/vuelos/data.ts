@@ -34,6 +34,7 @@ export function filtroVueloVigente(ahora = new Date()): Prisma.vueloWhereInput {
 
 /** Las reservas canceladas o reembolsadas ya no se ven afectadas por un cambio. */
 export const filtroPasajesActivos: Prisma.pasajeWhereInput = {
+  cancelado: false,
   pago: { estado_compra: { in: ["pendiente", "pagado"] } },
 };
 
