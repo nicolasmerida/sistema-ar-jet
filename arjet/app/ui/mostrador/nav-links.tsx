@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Tickets } from "lucide-react";
+import { PlaneTakeoff, Tickets } from "lucide-react";
 
 const navegacionMostrador = [
   { label: "Consulta de reservas", href: "/mostrador/reservas", icon: Tickets },
+  { label: "Estado de vuelos", href: "/mostrador/vuelos", icon: PlaneTakeoff },
 ];
 
 function useItemActivo() {
