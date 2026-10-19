@@ -2,7 +2,13 @@ import "server-only";
 
 import type { Prisma } from "@/src/generated/prisma/client";
 import { db } from "@/src/prisma/db";
-import type { ReservaEncontrada } from "./tipos";
+import {
+  bloqueoCheckinPasaje,
+  MENSAJE_CHECKIN_EXITO,
+  MENSAJE_TICKET_INVALIDO,
+  MENSAJE_YA_PRESENTADO,
+} from "./checkin-reglas";
+import type { ReservaEncontrada, ResultadoCheckin } from "./tipos";
 import type { BusquedaValida } from "./validacion";
 
 const LIMITE_RESULTADOS = 50;
@@ -63,6 +69,8 @@ export async function buscarReservas(busqueda: BusquedaValida) {
             select: {
               id_pasaje: true,
               cancelado: true,
+              presentado: true,
+              fecha_checkin: true,
               clase: true,
               pasajero_pasaje_pasajeroTopasajero: { select: { dni: true, nombre: true, apellido: true } },
               viaje: {
@@ -95,6 +103,8 @@ export async function buscarReservas(busqueda: BusquedaValida) {
     pasajes: reserva.pago.pasaje.map((pasaje) => ({
       id: pasaje.id_pasaje,
       cancelado: pasaje.cancelado || ["cancelado", "reembolsado"].includes(reserva.pago.estado_compra),
+      presentado: pasaje.presentado,
+      fechaCheckin: pasaje.fecha_checkin ? pasaje.fecha_checkin.toISOString() : null,
       clase: pasaje.clase,
       pasajero: pasaje.pasajero_pasaje_pasajeroTopasajero,
       numero: pasaje.viaje.vuelo.numero,
@@ -107,4 +117,61 @@ export async function buscarReservas(busqueda: BusquedaValida) {
   }));
 
   return { reservas: resultado, hayMas };
+}
+
+export async function registrarCheckinPasaje(
+  idPasaje: number,
+  dniPasajero?: string,
+): Promise<ResultadoCheckin> {
+  return db.$transaction(async (tx): Promise<ResultadoCheckin> => {
+    const pasaje = await tx.pasaje.findUnique({
+      where: { id_pasaje: idPasaje },
+      select: {
+        id_pasaje: true,
+        pasajero: true,
+        cancelado: true,
+        presentado: true,
+        pago: { select: { estado_compra: true } },
+        viaje: { select: { estado: true } },
+      },
+    });
+
+    if (!pasaje || (dniPasajero !== undefined && pasaje.pasajero !== dniPasajero)) {
+      return { ok: false, mensaje: MENSAJE_TICKET_INVALIDO };
+    }
+
+    const bloqueo = bloqueoCheckinPasaje({
+      cancelado: pasaje.cancelado,
+      presentado: pasaje.presentado,
+      estadoCompra: pasaje.pago.estado_compra,
+      estadoViaje: pasaje.viaje.estado,
+    });
+    if (bloqueo) {
+      return { ok: false, mensaje: bloqueo };
+    }
+
+    const ahora = new Date();
+    const actualizado = await tx.pasaje.updateMany({
+      where: {
+        id_pasaje: idPasaje,
+        presentado: false,
+        cancelado: false,
+        pago: { estado_compra: "pagado" },
+      },
+      data: {
+        presentado: true,
+        fecha_checkin: ahora,
+      },
+    });
+
+    if (actualizado.count === 0) {
+      return { ok: false, mensaje: MENSAJE_YA_PRESENTADO };
+    }
+
+    return {
+      ok: true,
+      mensaje: MENSAJE_CHECKIN_EXITO,
+      fechaCheckin: ahora.toISOString(),
+    };
+  });
 }

@@ -73,9 +73,11 @@ model pasaje {
   compra                             Int
   pasajero                           String   @db.VarChar(20)
   clase                              clase_t
-  cancelado                          Boolean  @default(false)
+  cancelado                          Boolean   @default(false)
   fecha_cancelacion                  DateTime? @db.Timestamptz(6)
-  pago                               pago     @relation(fields: [compra], references: [cod_compra], onDelete: NoAction, onUpdate: NoAction)
+  presentado                         Boolean   @default(false)
+  fecha_checkin                      DateTime? @db.Timestamptz(6)
+  pago                               pago      @relation(fields: [compra], references: [cod_compra], onDelete: NoAction, onUpdate: NoAction)
   viaje                              viaje    @relation(fields: [id_viaje], references: [id_viaje], onDelete: NoAction, onUpdate: NoAction)
   pasajero_pasaje_pasajeroTopasajero pasajero @relation("pasaje_pasajeroTopasajero", fields: [pasajero], references: [dni], onDelete: NoAction, onUpdate: NoAction)
 

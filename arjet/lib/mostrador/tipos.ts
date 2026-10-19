@@ -19,6 +19,8 @@ export type EntradaBusqueda = {
 export type PasajeEncontrado = {
   id: number;
   cancelado: boolean;
+  presentado: boolean;
+  fechaCheckin: string | null;
   clase: string;
   pasajero: { dni: string; nombre: string; apellido: string };
   numero: string;
@@ -40,3 +42,7 @@ export type ReservaEncontrada = {
 export type ResultadoBusqueda =
   | { ok: true; reservas: ReservaEncontrada[]; hayMas: boolean }
   | { ok: false; mensaje: string; campo?: "criterio" | "valor" };
+
+export type ResultadoCheckin =
+  | { ok: true; mensaje: string; fechaCheckin: string }
+  | { ok: false; mensaje: string };
