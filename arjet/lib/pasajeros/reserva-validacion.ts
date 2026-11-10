@@ -4,6 +4,20 @@ export type DatosReserva = { viaje: number; clase: ClaseReserva; pasajeros: Dato
 export type ErrorPasajero = Partial<Record<keyof DatosPasajero, string>>;
 export type ErroresReserva = { clase?: string; pasajeros?: ErrorPasajero[]; mensaje?: string };
 
+export const MAX_PASAJES_POR_TRANSACCION = 9;
+export const MENSAJE_LIMITE_PASAJES = `No es posible comprar más de ${MAX_PASAJES_POR_TRANSACCION} pasajes por transacción`;
+
+export function mensajeAsientosDisponibles(libres: number) {
+  return libres === 1 ? "Solo queda 1 asiento disponible en esta clase" : `Solo quedan ${libres} asientos disponibles en esta clase`;
+}
+
+// US-25: la misma regla se aplica en la interfaz, en la server action y dentro de la transacción.
+export function validarCantidadPasajes(cantidad: number, disponibles?: number): string | undefined {
+  if (!Number.isInteger(cantidad) || cantidad < 1) return `Seleccioná una cantidad de pasajes entre 1 y ${MAX_PASAJES_POR_TRANSACCION}`;
+  if (cantidad > MAX_PASAJES_POR_TRANSACCION) return MENSAJE_LIMITE_PASAJES;
+  if (disponibles !== undefined && cantidad > disponibles) return mensajeAsientosDisponibles(disponibles);
+}
+
 export function normalizarPasajero(datos: DatosPasajero): DatosPasajero {
   return { nombre: datos.nombre.trim(), apellido: datos.apellido.trim(), dni: datos.dni.replace(/[.\s-]/g, "").toUpperCase() };
 }

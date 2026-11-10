@@ -3,7 +3,7 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { ROL_POR_DEFECTO } from "@/lib/usuarios/tipos";
-import { leerReserva, validarPasajeros, type ErroresReserva } from "./reserva-validacion";
+import { leerReserva, validarCantidadPasajes, validarPasajeros, type ErroresReserva } from "./reserva-validacion";
 import { registrarReserva, ReservaRechazada } from "./reserva";
 
 export type ResultadoReserva =
@@ -17,6 +17,8 @@ export async function reservarVuelo(entrada: unknown): Promise<ResultadoReserva>
     if (usuario.banned || (usuario.publicMetadata.role ?? ROL_POR_DEFECTO) !== ROL_POR_DEFECTO) return { ok: false, mensaje: "No tiene permisos para acceder a esta sección" };
     const datos = leerReserva(entrada);
     if (!datos) return { ok: false, mensaje: "Los datos de la reserva no son válidos" };
+    const errorCantidad = validarCantidadPasajes(datos.pasajeros.length);
+    if (errorCantidad) return { ok: false, mensaje: errorCantidad };
     const errores = validarPasajeros(datos.pasajeros);
     if (Object.keys(errores).length) return { ok: false, mensaje: "Revisá los datos de los pasajeros", errores };
     const codigo = await registrarReserva(datos, usuario.id);
