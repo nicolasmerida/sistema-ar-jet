@@ -7,6 +7,7 @@ export function retornoReserva(entrada: unknown): string | undefined {
   if (typeof entrada !== "string") return;
   try {
     const url = new URL(entrada, "http://localhost");
+    if (/^\/vuelos\/compras(\/[1-9]\d*)?$/.test(url.pathname)) return url.pathname;
     if (/^\/vuelos\/reservas\/[1-9]\d*(\/pago)?$/.test(url.pathname)) return url.pathname;
     const viaje = Number(url.searchParams.get("viaje"));
     const clase = url.searchParams.get("clase");

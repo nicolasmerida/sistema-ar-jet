@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { ROL_POR_DEFECTO } from "@/lib/usuarios/tipos";
 import { leerDatosPago, validarPago, autorizarTarjetaSimulada, type ErroresPago } from "./pago-validacion";
 import { procesarPago, PagoRechazado } from "./procesar-pago";
+import { procesarSiguienteDocumento } from "@/lib/documentos/cola";
 
 export type ResultadoPago = { ok: true } | { ok: false; mensaje: string; errores?: ErroresPago; resultados?: string };
 
@@ -17,6 +18,8 @@ export async function pagarReserva(codigo: unknown, entrada: unknown): Promise<R
     const errores = validarPago(datos);
     if (Object.keys(errores).length) return { ok: false, mensaje: "Revisá los campos marcados en rojo", errores };
     await procesarPago(codigo, usuario.id, autorizarTarjetaSimulada(datos));
+    // El pago ya está confirmado: fallar al emitir nunca debe convertirlo en un pago fallido.
+    try { await procesarSiguienteDocumento(codigo); } catch { console.error("Documentación pendiente; el worker reintentará la emisión"); }
     revalidatePath("/vuelos", "layout");
     revalidatePath("/mostrador");
     revalidatePath("/mostrador/vuelos");

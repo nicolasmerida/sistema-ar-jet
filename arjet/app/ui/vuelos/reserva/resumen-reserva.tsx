@@ -4,12 +4,14 @@ import type { obtenerResumenReserva } from "@/lib/pasajeros/reserva-data";
 import { dinero, fechaHora } from "./formato";
 import { PasosReserva } from "./pasos-reserva";
 import { SeleccionPago } from "./seleccion-pago";
+import type { DocumentacionVista } from "@/lib/documentos/data";
+import { DocumentosCompra } from "@/app/ui/pasajeros/compras/documentos-compra";
 
-export function ResumenReserva({ reserva }: { reserva: NonNullable<Awaited<ReturnType<typeof obtenerResumenReserva>>> }) {
+export function ResumenReserva({ reserva, documentacion }: { reserva: NonNullable<Awaited<ReturnType<typeof obtenerResumenReserva>>>; documentacion?: DocumentacionVista | null }) {
   return (
     <div className="flex flex-col gap-6">
       <PasosReserva reservada />
-      <h1 className="text-2xl font-semibold">Pago y confirmación</h1>
+      <h1 className="text-2xl font-semibold">{reserva.estado === "pagado" ? "Compra realizada correctamente" : "Pago y confirmación"}</h1>
       {reserva.pago.referencia && <dl className="grid gap-2 border-l-4 border-primary bg-tertiary p-4 text-sm sm:grid-cols-2">
         <div><dt className="text-zinc-500">Referencia del pago</dt><dd className="break-all font-medium">{reserva.pago.referencia}</dd></div>
         <div><dt className="text-zinc-500">Importe abonado</dt><dd className="font-medium">{dinero(reserva.pago.importe ?? "0")}</dd></div>
@@ -36,7 +38,8 @@ export function ResumenReserva({ reserva }: { reserva: NonNullable<Awaited<Retur
         <SeleccionPago key={`${reserva.codigo}-${reserva.modalidad ?? "pendiente"}`} codigo={reserva.codigo} total={reserva.total} partida={reserva.partida}
           modalidadGuardada={reserva.modalidad} puedeConfirmar={reserva.puedeConfirmar} estado={reserva.estado} />
       </div>
-      <Link href="/vuelos/reservas" className="inline-flex w-fit items-center gap-2 text-sm font-semibold text-secondary"><ArrowLeft className="size-4" aria-hidden="true" />Volver a mis reservas</Link>
+      {documentacion && <DocumentosCompra compra={documentacion} />}
+      <Link href={documentacion ? "/vuelos/compras" : "/vuelos/reservas"} className="inline-flex w-fit items-center gap-2 text-sm font-semibold text-secondary"><ArrowLeft className="size-4" aria-hidden="true" />{documentacion ? "Volver a mis compras" : "Volver a mis reservas"}</Link>
     </div>
   );
 }

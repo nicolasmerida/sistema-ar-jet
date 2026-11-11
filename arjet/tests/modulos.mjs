@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { runInNewContext } from "node:vm";
+import { runInThisContext } from "node:vm";
 import ts from "typescript";
 
 // Aísla los módulos de negocio de Clerk y de la conexión de producción.
@@ -10,12 +10,10 @@ export function cargar(ruta, dependencias = {}) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   });
   const exports = {};
-  runInNewContext(outputText, {
-    exports, Date, Intl, URL, URLSearchParams, console: { error() {} },
-    require(nombre) {
-      assert.ok(Object.hasOwn(dependencias, nombre), `Dependencia inesperada: ${nombre}`);
-      return dependencias[nombre];
-    },
-  }, { filename: ruta });
+  const ejecutar = runInThisContext(`(function(exports, require, console) {\n${outputText}\n})`, { filename: ruta });
+  ejecutar(exports, (nombre) => {
+    assert.ok(Object.hasOwn(dependencias, nombre), `Dependencia inesperada: ${nombre}`);
+    return dependencias[nombre];
+  }, { error() {} });
   return exports;
 }

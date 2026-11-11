@@ -7,6 +7,7 @@ import { Client } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import ts from "typescript";
 import { cargar } from "./modulos.mjs";
+import { verificarDocumentos } from "./verificar-documentos.mjs";
 
 // El generador usa imports TS sin extensión; este loader solo afecta al proceso de prueba.
 registerHooks({
@@ -33,8 +34,10 @@ const core = cargar("lib/pasajeros/procesar-pago.ts", {
   "@/lib/vuelos/data": { filtroPasajesVendidos: { cancelado: false, pago: { estado_compra: "pagado" } } },
   "@/lib/vuelos/cancelacion": {}, "@/lib/vuelos/fechas": fechas,
   "./reserva-validacion": cargar("lib/pasajeros/reserva-validacion.ts"), "./pago-validacion": validacion,
+  "@/lib/documentos/preparar": cargar("lib/documentos/preparar.ts"),
 });
 let creado = false;
+let preparando = false;
 const autorizar = { autorizada: true, ultimos4: "1111" };
 async function pagar(codigo, propietario, autorizacion = autorizar, forzarFallo = false) {
   return db.$transaction(async (tx) => {
@@ -52,7 +55,7 @@ try {
     const definicion = await administrador.query("SELECT format('CREATE TYPE %I.%I AS ENUM (%s)', $1::text, $2::text, string_agg(quote_literal(e.enumlabel), ',' ORDER BY e.enumsortorder)) AS sql FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid JOIN pg_namespace n ON n.oid=t.typnamespace WHERE n.nspname='public' AND t.typname=$2", [schema, tipo]);
     await administrador.query(definicion.rows[0].sql);
   }
-  for (const tabla of ["aeropuerto", "avion", "vuelo", "viaje", "usuario", "cliente", "pasajero", "pago", "reserva", "pasaje"]) {
+  for (const tabla of ["aeropuerto", "avion", "vuelo", "viaje", "usuario", "cliente", "pasajero", "pago", "reserva", "pasaje", "documentacion_compra", "documento"]) {
     await administrador.query(`CREATE TABLE "${schema}"."${tabla}" (LIKE public."${tabla}" INCLUDING DEFAULTS INCLUDING IDENTITY INCLUDING GENERATED)`);
   }
   for (const [tabla, columna, tipo, defecto] of [
@@ -64,7 +67,9 @@ try {
     await administrador.query(`ALTER TABLE "${schema}"."${tabla}" ALTER COLUMN "${columna}" TYPE "${schema}"."${tipo}" USING "${columna}"::text::"${schema}"."${tipo}"`);
     if (defecto) await administrador.query(`ALTER TABLE "${schema}"."${tabla}" ALTER COLUMN "${columna}" SET DEFAULT '${defecto}'::"${schema}"."${tipo}"`);
   }
-  await administrador.query(`SET search_path TO "${schema}", public`);
+  await administrador.query("BEGIN");
+  preparando = true;
+  await administrador.query(`SET LOCAL search_path TO "${schema}", public`);
   await administrador.query(`
     INSERT INTO aeropuerto (id_aeropuerto,ciudad,codigo_iata,nombre) OVERRIDING SYSTEM VALUE VALUES (1,'Origen prueba','TSA','Prueba A'),(2,'Destino prueba','TSB','Prueba B');
     INSERT INTO avion (id_avion,capacidad_economy,capacidad_primera,matricula,modelo) OVERRIDING SYSTEM VALUE VALUES (1,1,1,'US26-TEST','Prueba');
@@ -77,12 +82,16 @@ try {
     INSERT INTO reserva (cod_compra,dni_usuario,modalidad) VALUES (1,'11111111','tarjeta'),(2,'22222222','tarjeta');
     INSERT INTO pasaje (id_pasaje,id_viaje,compra,pasajero,clase,precio_unitario) OVERRIDING SYSTEM VALUE VALUES (1,1,1,'11111111','economy',1500.50),(2,1,2,'22222222','economy',1500.50);
   `);
+  await administrador.query("COMMIT");
+  preparando = false;
   await assert.rejects(pagar(1, "us26-b"), /permisos/);
   await assert.rejects(pagar(1, "us26-a", { autorizada: false, ultimos4: "0002" }), /rechazado/);
   assert.equal(await db.pago.count({ where: { estado_compra: "pagado" } }), 0);
+  assert.equal(await db.documentacion_compra.count(), 0);
   await assert.rejects(pagar(1, "us26-a", autorizar, true), /fallo de prueba/);
   assert.equal(await db.pago.count({ where: { estado_compra: "pagado" } }), 0);
   assert.equal((await db.pago.findUnique({ where: { cod_compra: 1 } })).referencia, null);
+  assert.equal(await db.documentacion_compra.count(), 0);
   const simultaneos = await Promise.allSettled([pagar(1, "us26-a"), pagar(2, "us26-b")]);
   assert.equal(simultaneos.filter((r) => r.status === "fulfilled").length, 1);
   assert.match(simultaneos.find((r) => r.status === "rejected").reason.message, /asientos seleccionados ya no están disponibles/);
@@ -92,9 +101,13 @@ try {
   const reintento = await pagar(ganador.cod_compra, ganador.cod_compra === 1 ? "us26-a" : "us26-b");
   assert.equal(reintento.referencia, ganador.referencia);
   assert.equal(await db.pago.count({ where: { estado_compra: "pagado" } }), 1);
+  assert.equal(await db.documentacion_compra.count(), 1);
+  assert.equal(await db.documento.count(), 2);
   console.log("PostgreSQL: rechazo, propiedad, rollback real, último asiento concurrente e idempotencia verificados en esquema aislado.");
+  await verificarDocumentos(db, schema, ganador.cod_compra, ganador.cod_compra === 1 ? "us26-a" : "us26-b");
 } finally {
   await db.$disconnect();
+  if (preparando) await administrador.query("ROLLBACK");
   if (creado) await administrador.query(`DROP SCHEMA "${schema}" CASCADE`);
   await administrador.end();
 }

@@ -7,6 +7,7 @@ const fechas = cargar("lib/vuelos/fechas.ts");
 const cantidad = cargar("lib/pasajeros/reserva-validacion.ts");
 const validacion = cargar("lib/pasajeros/pago-validacion.ts", { "@/lib/vuelos/fechas": fechas });
 const tarjeta = { titular: "María González", numero: "4111111111111111", vencimiento: "12/99", seguridad: "123" };
+const preparar = cargar("lib/documentos/preparar.ts");
 
 function servicio(db = {}) {
   return cargar("lib/pasajeros/procesar-pago.ts", {
@@ -14,18 +15,21 @@ function servicio(db = {}) {
     "@/src/prisma/db": { db }, "@/lib/vuelos/data": { filtroPasajesVendidos: { cancelado: false, pago: { estado_compra: "pagado" } } },
     "@/lib/vuelos/cancelacion": { OPCIONES_TRANSACCION: { maxWait: 10000, timeout: 20000 } },
     "@/lib/vuelos/fechas": fechas, "./reserva-validacion": cantidad, "./pago-validacion": validacion,
+    "@/lib/documentos/preparar": preparar,
   });
 }
 
 function fixture({ vendidos = 0, estado = "pendiente", autorizada = true } = {}) {
   const viaje = {
+    fecha_llegada: new Date("2099-11-11T17:00:00Z"),
     fecha_partida: new Date("2099-11-11T15:00:00Z"), estado: "programado",
     avion: { estado: "activo", capacidad_economy: 1, capacidad_primera: 1 },
-    vuelo: { origen: 1, destino: 2, inicio_disp: new Date("2099-01-01"), fin_disp: new Date("2099-12-31"), dias_operacion: [1, 2, 3, 4, 5, 6, 7],
-      aeropuerto_vuelo_origenToaeropuerto: { estado: "activo" }, aeropuerto_vuelo_destinoToaeropuerto: { estado: "activo" } },
+    vuelo: { numero: "AN 824", origen: 1, destino: 2, inicio_disp: new Date("2099-01-01"), fin_disp: new Date("2099-12-31"), dias_operacion: [1, 2, 3, 4, 5, 6, 7],
+      aeropuerto_vuelo_origenToaeropuerto: { estado: "activo", ciudad: "Córdoba", codigo_iata: "COR" }, aeropuerto_vuelo_destinoToaeropuerto: { estado: "activo", ciudad: "Buenos Aires", codigo_iata: "AEP" } },
   };
-  const reserva = { pago: { estado_compra: estado, referencia: estado === "pagado" ? "SIM-anterior" : null,
-    pasaje: [{ id_viaje: 9, clase: "economy", precio_unitario: new Decimal("15000.50"), cancelado: false, viaje }] } };
+  const persona = { dni: "22222222", nombre: "María", apellido: "González" };
+  const reserva = { usuario: persona, pago: { estado_compra: estado, referencia: estado === "pagado" ? "SIM-anterior" : null,
+    pasaje: [{ id_pasaje: 1, id_viaje: 9, clase: "economy", precio_unitario: new Decimal("15000.50"), cancelado: false, viaje, pasajero_pasaje_pasajeroTopasajero: persona }] } };
   const escrituras = [];
   const tx = {
     $queryRaw: async () => [],
@@ -118,10 +122,12 @@ test("acción de tarjeta: verifica rol y valida antes de procesar; error permite
   let usuario = null;
   let llamadas = 0;
   let fallar = false;
+  let fallarDocumentos = false;
   const core = servicio();
   const acciones = cargar("lib/pasajeros/tarjeta-actions.ts", {
     "@clerk/nextjs/server": { currentUser: async () => usuario }, "next/cache": { revalidatePath() {} },
     "@/lib/usuarios/tipos": { ROL_POR_DEFECTO: "cliente" }, "./pago-validacion": validacion,
+    "@/lib/documentos/cola": { procesarSiguienteDocumento: async () => { if (fallarDocumentos) throw new Error("fallo al emitir"); } },
     "./procesar-pago": { PagoRechazado: core.PagoRechazado, procesarPago: async (codigo, propietario, autorizacion) => {
       llamadas++; assert.equal(codigo, 42); assert.equal(propietario, "propietario");
       assert.equal(Object.keys(autorizacion).sort().join(","), "autorizada,ultimos4");
@@ -138,6 +144,8 @@ test("acción de tarjeta: verifica rol y valida antes de procesar; error permite
   fallar = true;
   assert.match((await acciones.pagarReserva(42, tarjeta)).mensaje, /reintentá más tarde/);
   fallar = false;
+  assert.equal((await acciones.pagarReserva(42, tarjeta)).ok, true);
+  fallarDocumentos = true;
   assert.equal((await acciones.pagarReserva(42, tarjeta)).ok, true);
 });
 

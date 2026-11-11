@@ -2,15 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { PlaneTakeoff, Tickets } from "lucide-react";
+import { PlaneTakeoff, Tickets, ShoppingBag } from "lucide-react";
 
 const enlaces = [
   { nombre: "Vuelos", href: "/vuelos", icono: PlaneTakeoff },
   { nombre: "Reservas", href: "/vuelos/reservas", icono: Tickets },
+  { nombre: "Mis compras", href: "/vuelos/compras", icono: ShoppingBag },
 ];
 
 function useSeccionPasajero() {
   const pathname = usePathname();
+  if (pathname.startsWith("/vuelos/compras")) return "Mis compras";
   return pathname.startsWith("/vuelos/reservas") ? "Reservas" : "Vuelos";
 }
 

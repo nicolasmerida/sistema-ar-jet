@@ -8,6 +8,7 @@ import { OPCIONES_TRANSACCION } from "@/lib/vuelos/cancelacion";
 import { columnaFecha, fechaLocal } from "@/lib/vuelos/fechas";
 import { validarCantidadPasajes } from "./reserva-validacion";
 import { MENSAJE_PAGO_RECHAZADO, MENSAJE_SIN_ASIENTOS_PAGO } from "./pago-validacion";
+import { prepararEmision } from "@/lib/documentos/preparar";
 
 export class PagoRechazado extends Error {
   constructor(mensaje: string, public resultados?: string) { super(mensaje); }
@@ -23,8 +24,8 @@ export async function pagarEnTransaccion(tx: Prisma.TransactionClient, codigo: n
   // Mismo orden de locks que reserva/cancelación; el conteo posterior ve el pago anterior.
   await tx.$queryRaw`SELECT id_viaje FROM viaje WHERE id_viaje = ANY(${ids}::int[]) ORDER BY id_viaje FOR UPDATE`;
   await tx.$queryRaw`SELECT cod_compra FROM pago WHERE cod_compra = ${codigo} FOR UPDATE`;
-  const reserva = await tx.reserva.findFirst({ where, include: { pago: { include: { pasaje: {
-    include: { viaje: { include: { avion: true, vuelo: { include: { aeropuerto_vuelo_origenToaeropuerto: true, aeropuerto_vuelo_destinoToaeropuerto: true } } } } },
+  const reserva = await tx.reserva.findFirst({ where, include: { usuario: { select: { dni: true, nombre: true, apellido: true } }, pago: { include: { pasaje: {
+    include: { pasajero_pasaje_pasajeroTopasajero: true, viaje: { include: { avion: true, vuelo: { include: { aeropuerto_vuelo_origenToaeropuerto: true, aeropuerto_vuelo_destinoToaeropuerto: true } } } } },
   } } } } });
   if (!reserva) throw new PagoRechazado("La reserva ya no existe");
   const pago = reserva.pago;
@@ -59,8 +60,19 @@ export async function pagarEnTransaccion(tx: Prisma.TransactionClient, codigo: n
   if (!autorizacion.autorizada) throw new PagoRechazado(MENSAJE_PAGO_RECHAZADO);
   const importe = pasajes.reduce((total, p) => total.add(p.precio_unitario), pasajes[0].precio_unitario.mul(0));
   const referencia = `SIM-${randomUUID()}`;
+  const emision = prepararEmision({
+    codigo, fecha: ahora.toISOString(), importe: importe.toString(), moneda: "ARS", comprador: reserva.usuario,
+    pasajes: pasajes.map((p) => {
+      const origen = p.viaje.vuelo.aeropuerto_vuelo_origenToaeropuerto;
+      const destino = p.viaje.vuelo.aeropuerto_vuelo_destinoToaeropuerto;
+      return { idPasaje: p.id_pasaje, ...p.pasajero_pasaje_pasajeroTopasajero, vuelo: p.viaje.vuelo.numero,
+        origen: `${origen.ciudad} (${origen.codigo_iata})`, destino: `${destino.ciudad} (${destino.codigo_iata})`,
+        partida: p.viaje.fecha_partida.toISOString(), llegada: p.viaje.fecha_llegada.toISOString(), clase: p.clase, precio: p.precio_unitario.toString() };
+    }),
+  });
   await tx.pago.update({ where: { cod_compra: codigo }, data: {
     estado_compra: "pagado", tipo: "tarjeta_credito", importe, moneda: "ARS", fecha_pago: ahora, referencia, tarjeta_ultimos4: autorizacion.ultimos4,
+    factura: emision.datos.numeroFactura, documentacion: { create: emision },
   } });
   await tx.reserva.update({ where: { cod_compra: codigo }, data: { modalidad: "tarjeta" } });
   return { referencia };
