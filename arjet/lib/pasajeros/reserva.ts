@@ -2,7 +2,7 @@ import "server-only";
 
 import type { Prisma } from "@/src/generated/prisma/client";
 import { db } from "@/src/prisma/db";
-import { filtroPasajesActivos } from "@/lib/vuelos/data";
+import { filtroPasajesVendidos } from "@/lib/vuelos/data";
 import { OPCIONES_TRANSACCION } from "@/lib/vuelos/cancelacion";
 import { columnaFecha, fechaLocal } from "@/lib/vuelos/fechas";
 import { mensajeAsientosDisponibles, validarCantidadPasajes, type DatosReserva } from "./reserva-validacion";
@@ -30,7 +30,7 @@ export async function registrarEnTransaccion(tx: Prisma.TransactionClient, datos
   if (fecha < viaje.vuelo.inicio_disp || fecha > viaje.vuelo.fin_disp || !viaje.vuelo.dias_operacion.includes(dia)) {
     throw new ReservaRechazada("El vuelo ya no está disponible", true);
   }
-  const ocupados = await tx.pasaje.count({ where: { id_viaje: datos.viaje, clase: datos.clase, ...filtroPasajesActivos } });
+  const ocupados = await tx.pasaje.count({ where: { id_viaje: datos.viaje, clase: datos.clase, ...filtroPasajesVendidos } });
   const capacidad = datos.clase === "economy" ? viaje.avion.capacidad_economy : viaje.avion.capacidad_primera;
   const libres = capacidad - ocupados;
   if (libres <= 0) throw new ReservaRechazada("El asiento ya no está disponible", true);
@@ -47,7 +47,8 @@ export async function registrarEnTransaccion(tx: Prisma.TransactionClient, datos
     await tx.pasajero.upsert({ where: { dni: pasajero.dni }, create: pasajero, update: {} });
   }
   const pago = await tx.pago.create({ data: { estado_compra: "pendiente", reserva: { create: { dni_usuario: usuario.dni } } }, select: { cod_compra: true } });
-  await tx.pasaje.createMany({ data: datos.pasajeros.map((p) => ({ id_viaje: datos.viaje, compra: pago.cod_compra, pasajero: p.dni, clase: datos.clase })) });
+  const precio = datos.clase === "economy" ? viaje.vuelo.precio_economy : viaje.vuelo.precio_primera;
+  await tx.pasaje.createMany({ data: datos.pasajeros.map((p) => ({ id_viaje: datos.viaje, compra: pago.cod_compra, pasajero: p.dni, clase: datos.clase, precio_unitario: precio })) });
   return pago.cod_compra;
 }
 

@@ -8,7 +8,7 @@ export type ResultadoConfirmacion = { ok: true } | { ok: false; mensaje: string 
 export async function guardarModalidad(codigo: number, clerkId: string, modalidad: ModalidadReserva): Promise<ResultadoConfirmacion> {
   const resultado = await db.reserva.updateMany({
     where: {
-      cod_compra: codigo, usuario: { clerk_id: clerkId }, modalidad: null,
+      cod_compra: codigo, usuario: { clerk_id: clerkId },
       pago: {
         estado_compra: "pendiente",
         pasaje: { some: { cancelado: false }, every: { OR: [{ cancelado: true }, { viaje: { estado: { in: ["programado", "demorado"] }, fecha_partida: { gt: new Date() } } }] } },

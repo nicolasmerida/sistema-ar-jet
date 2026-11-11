@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { Prisma } from "@/src/generated/prisma/client";
 import { db } from "@/src/prisma/db";
 import { OPCIONES_TRANSACCION, cancelarViajesEnTx } from "./cancelacion";
-import { bloqueoCancelacion, filtroPasajesActivos, filtroViajesPendientes } from "./data";
+import { bloqueoCancelacion, filtroPasajesActivos, filtroPasajesVendidos, filtroViajesPendientes } from "./data";
 import {
   ZONA_HORARIA,
   columnaFecha,
@@ -148,10 +148,13 @@ export async function actualizarVuelo(id: unknown, entrada: unknown): Promise<Re
       if (viajes.length === 0) rechazar(MENSAJES.noEditable);
       const ids = viajes.map((viaje) => viaje.id_viaje);
 
+      // El pago bloquea los mismos viajes: contar ventas después del lock evita reducir capacidad con un conteo desactualizado.
+      await tx.$queryRaw`SELECT id_viaje FROM viaje WHERE id_viaje = ANY(${ids}::int[]) ORDER BY id_viaje FOR UPDATE`;
+
       if (viajes.some((viaje) => viaje.id_avion !== idAvion)) {
         const vendidos = await tx.pasaje.groupBy({
           by: ["id_viaje", "clase"],
-          where: { id_viaje: { in: ids }, ...filtroPasajesActivos },
+          where: { id_viaje: { in: ids }, ...filtroPasajesVendidos },
           _count: { _all: true },
         });
         const excede = vendidos.some(({ clase, _count }) =>

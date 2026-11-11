@@ -63,6 +63,11 @@ model pago {
   factura       String?         @unique @db.VarChar(50)
   tipo          tipo_pago_t?
   estado_compra estado_compra_t @default(pendiente)
+  importe       Decimal?        @db.Decimal(12, 2)
+  moneda        String          @default("ARS") @db.VarChar(3)
+  fecha_pago    DateTime?       @db.Timestamptz(6)
+  referencia    String?         @unique @db.VarChar(50)
+  tarjeta_ultimos4 String?       @db.VarChar(4)
   pasaje        pasaje[]
   reserva       reserva?
 }
@@ -73,6 +78,7 @@ model pasaje {
   compra                             Int
   pasajero                           String   @db.VarChar(20)
   clase                              clase_t
+  precio_unitario                    Decimal   @db.Decimal(10, 2)
   cancelado                          Boolean   @default(false)
   fecha_cancelacion                  DateTime? @db.Timestamptz(6)
   presentado                         Boolean   @default(false)

@@ -11,7 +11,7 @@ test("tarjeta y mostrador confirman la misma reserva, sin crear pasajes ni marca
     const core = servicio({ updateMany: async ({ where, data }) => {
       assert.equal(where.cod_compra, 42);
       assert.equal(where.usuario.clerk_id, "propietario");
-      assert.equal(where.modalidad, null);
+      assert.equal(where.modalidad, undefined);
       assert.equal(where.pago.estado_compra, "pendiente");
       assert.equal(where.pago.pasaje.some.cancelado, false);
       assert.equal(where.pago.pasaje.every.OR[0].cancelado, true);

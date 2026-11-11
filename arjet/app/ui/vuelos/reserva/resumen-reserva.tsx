@@ -10,6 +10,12 @@ export function ResumenReserva({ reserva }: { reserva: NonNullable<Awaited<Retur
     <div className="flex flex-col gap-6">
       <PasosReserva reservada />
       <h1 className="text-2xl font-semibold">Pago y confirmación</h1>
+      {reserva.pago.referencia && <dl className="grid gap-2 border-l-4 border-primary bg-tertiary p-4 text-sm sm:grid-cols-2">
+        <div><dt className="text-zinc-500">Referencia del pago</dt><dd className="break-all font-medium">{reserva.pago.referencia}</dd></div>
+        <div><dt className="text-zinc-500">Importe abonado</dt><dd className="font-medium">{dinero(reserva.pago.importe ?? "0")}</dd></div>
+        <div><dt className="text-zinc-500">Tarjeta</dt><dd>Terminada en {reserva.pago.ultimos4}</dd></div>
+        {reserva.pago.fecha && <div><dt className="text-zinc-500">Fecha de pago</dt><dd>{fechaHora(reserva.pago.fecha)}</dd></div>}
+      </dl>}
       <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] lg:gap-10">
         <section aria-labelledby="resumen-vuelo-titulo" className="min-w-0 lg:border-r lg:border-zinc-200 lg:pr-8">
           <h2 id="resumen-vuelo-titulo" className="mb-5 text-lg font-semibold">Resumen de vuelo</h2>

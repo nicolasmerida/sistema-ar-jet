@@ -38,6 +38,12 @@ export const filtroPasajesActivos: Prisma.pasajeWhereInput = {
   pago: { estado_compra: { in: ["pendiente", "pagado"] } },
 };
 
+/** US-26: una reserva pendiente no descuenta asientos ni suma a la ocupación. */
+export const filtroPasajesVendidos: Prisma.pasajeWhereInput = {
+  cancelado: false,
+  pago: { estado_compra: "pagado" },
+};
+
 const seleccionAeropuerto = { select: { codigo_iata: true, ciudad: true, estado: true } } as const;
 
 const seleccionVuelo = {

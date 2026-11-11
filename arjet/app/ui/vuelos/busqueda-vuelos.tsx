@@ -8,9 +8,9 @@ import type { OpcionAeropuerto } from "@/lib/vuelos/tipos";
 import { FormularioBusqueda } from "./formulario-busqueda";
 import { ResultadosVuelos } from "./resultados-vuelos";
 
-export function BusquedaVuelos({ aeropuertos, hoy, errorCarga, datosIniciales, resultadoInicial, agotado = false }: {
+export function BusquedaVuelos({ aeropuertos, hoy, errorCarga, datosIniciales, resultadoInicial, agotado = false, sinAsientosPago = false }: {
   aeropuertos: OpcionAeropuerto[]; hoy: string; errorCarga: boolean;
-  datosIniciales?: DatosBusqueda; resultadoInicial?: ResultadoBusqueda; agotado?: boolean;
+  datosIniciales?: DatosBusqueda; resultadoInicial?: ResultadoBusqueda; agotado?: boolean; sinAsientosPago?: boolean;
 }) {
   const [datos, setDatos] = useState<DatosBusqueda>(datosIniciales ?? { origen: "", destino: "", fecha: "" });
   const [tocados, setTocados] = useState<Partial<Record<keyof DatosBusqueda, boolean>>>({});
@@ -40,7 +40,7 @@ export function BusquedaVuelos({ aeropuertos, hoy, errorCarga, datosIniciales, r
 
   return (
     <div className="flex flex-col gap-6">
-      {mostrarAgotado && <p role="alert" className="rounded-md border border-primary/40 bg-primary/10 p-4 text-sm">El asiento ya no está disponible. Los resultados se actualizaron para que puedas elegir otro vuelo.</p>}
+      {mostrarAgotado && <p role="alert" className="rounded-md border border-primary/40 bg-primary/10 p-4 text-sm">{sinAsientosPago ? "Los asientos seleccionados ya no están disponibles" : "El asiento ya no está disponible. Los resultados se actualizaron para que puedas elegir otro vuelo."}</p>}
       {errorCarga && <p role="alert" className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">No se pudieron cargar los aeropuertos. Por favor, recargá la página o reintentá más tarde.</p>}
       {!errorCarga && !aeropuertos.length && <p role="status" className="bg-tertiary p-4 text-sm text-zinc-600">No hay aeropuertos disponibles en este momento.</p>}
       <FormularioBusqueda datos={datos} errores={errores} aeropuertos={aeropuertos} hoy={hoy} pendiente={pendiente}

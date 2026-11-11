@@ -28,7 +28,7 @@ test("fecha actual y límites de día usan Argentina, incluso al cambiar el día
 function servicio(findMany) {
   return cargar("lib/pasajeros/data.ts", {
     "server-only": {}, "@/src/prisma/db": { db: { viaje: { findMany } } },
-    "@/lib/vuelos/data": { filtroPasajesActivos: { pago: { estado_compra: { in: ["pendiente", "pagado"] } } } },
+    "@/lib/vuelos/data": { filtroPasajesVendidos: { cancelado: false, pago: { estado_compra: "pagado" } } },
     "@/lib/vuelos/fechas": fechas, "./validacion": validacion,
   });
 }
@@ -48,7 +48,8 @@ test("consulta: ruta, día ISO, vigencia, activos y reservas que ocupan asientos
     assert.equal(where.avion.estado, "activo");
     assert.equal(where.vuelo.aeropuerto_vuelo_origenToaeropuerto.estado, "activo");
     assert.equal(where.vuelo.aeropuerto_vuelo_destinoToaeropuerto.estado, "activo");
-    assert.equal(select.pasaje.where.pago.estado_compra.in.join(","), "pendiente,pagado");
+    assert.equal(select.pasaje.where.cancelado, false);
+    assert.equal(select.pasaje.where.pago.estado_compra, "pagado");
     return [];
   });
   assert.equal((await data.obtenerVuelosDisponibles(datos, ahora)).length, 0);

@@ -11,7 +11,7 @@ export function cargar(ruta, dependencias = {}) {
   });
   const exports = {};
   runInNewContext(outputText, {
-    exports, Date, Intl, URL, console: { error() {} },
+    exports, Date, Intl, URL, URLSearchParams, console: { error() {} },
     require(nombre) {
       assert.ok(Object.hasOwn(dependencias, nombre), `Dependencia inesperada: ${nombre}`);
       return dependencias[nombre];

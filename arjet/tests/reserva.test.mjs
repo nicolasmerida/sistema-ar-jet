@@ -6,11 +6,11 @@ const validacion = cargar("lib/pasajeros/reserva-validacion.ts");
 const fechas = cargar("lib/vuelos/fechas.ts");
 const rutas = cargar("lib/pasajeros/rutas.ts");
 const datos = { viaje: 1, clase: "economy", pasajeros: [{ nombre: "María", apellido: "González", dni: "22.222.222" }] };
-const activos = { cancelado: false, pago: { estado_compra: { in: ["pendiente", "pagado"] } } };
+const vendidos = { cancelado: false, pago: { estado_compra: "pagado" } };
 
 function servicio(db = {}) {
   return cargar("lib/pasajeros/reserva.ts", {
-    "server-only": {}, "@/src/prisma/db": { db }, "@/lib/vuelos/data": { filtroPasajesActivos: activos },
+    "server-only": {}, "@/src/prisma/db": { db }, "@/lib/vuelos/data": { filtroPasajesVendidos: vendidos },
     "@/lib/vuelos/cancelacion": { OPCIONES_TRANSACCION: { maxWait: 10000, timeout: 20000 } },
     "@/lib/vuelos/fechas": fechas, "./reserva-validacion": validacion,
   });
@@ -23,6 +23,7 @@ function viaje() {
     estado: "programado", fecha_partida: fecha,
     avion: { estado: "activo", capacidad_economy: 1, capacidad_primera: 2 },
     vuelo: {
+      precio_economy: "15000.50", precio_primera: "30000",
       inicio_disp: new Date("2099-01-01"), fin_disp: new Date("2099-12-31"), dias_operacion: [dia],
       aeropuerto_vuelo_origenToaeropuerto: { estado: "activo" }, aeropuerto_vuelo_destinoToaeropuerto: { estado: "activo" },
     },
@@ -60,21 +61,21 @@ test("login: conserva viaje y clase sin habilitar una redirección externa", () 
   for (const url of ["https://externo.test/", "/vuelos/reservar?viaje=-1&clase=primera", "/dashboard", ["/vuelos/reservar"]]) assert.equal(rutas.retornoReserva(url), undefined);
 });
 
-test("reserva: usa la identidad autenticada, cuenta pendientes/pagados y guarda juntos", async () => {
+test("reserva: usa la identidad autenticada, cuenta solo pagados y guarda el precio acordado", async () => {
   const tx = cliente();
   const orden = [];
   tx.$queryRaw = async (sql, id) => { assert.match(sql.join("?"), /FOR UPDATE/); assert.equal(id, 1); orden.push("lock"); return [{ id_viaje: 1 }]; };
-  tx.pasaje.count = async ({ where }) => { assert.equal(where.clase, "economy"); assert.equal(where.pago.estado_compra.in.join(","), "pendiente,pagado"); orden.push("count"); return 0; };
+  tx.pasaje.count = async ({ where }) => { assert.equal(where.clase, "economy"); assert.equal(where.pago.estado_compra, "pagado"); orden.push("count"); return 0; };
   tx.usuario.findUnique = async ({ where }) => { assert.equal(where.clerk_id, "clerk-test"); return { dni: "12345678", cliente: {} }; };
   tx.pago.create = async ({ data }) => { assert.equal(data.estado_compra, "pendiente"); assert.equal(data.tipo, undefined); assert.equal(data.reserva.create.dni_usuario, "12345678"); return { cod_compra: 42 }; };
-  tx.pasaje.createMany = async ({ data }) => { assert.equal(data.length, 1); assert.equal(data[0].compra, 42); assert.equal(data[0].pasajero, "22222222"); assert.equal(data[0].clase, "economy"); };
+  tx.pasaje.createMany = async ({ data }) => { assert.equal(data.length, 1); assert.equal(data[0].compra, 42); assert.equal(data[0].pasajero, "22222222"); assert.equal(data[0].clase, "economy"); assert.equal(data[0].precio_unitario, "15000.50"); };
   const db = { $transaction: async (fn, opciones) => { assert.equal(opciones.isolationLevel, "ReadCommitted"); return fn(tx); } };
   assert.equal(await servicio(db).registrarReserva(validacion.leerReserva(datos), "clerk-test"), 42);
   assert.equal(orden.join(","), "lock,count");
 });
 
-test("último asiento: dos confirmaciones simultáneas, solo una registra la reserva", async () => {
-  let ocupados = 0;
+test("US-26: reservas pendientes simultáneas no descuentan el último asiento", async () => {
+  let creados = 0;
   let cola = Promise.resolve();
   const core = servicio();
   async function reservar() {
@@ -83,17 +84,14 @@ test("último asiento: dos confirmaciones simultáneas, solo una registra la res
     cola = new Promise((resolve) => { liberar = resolve; });
     const tx = cliente();
     tx.$queryRaw = async () => { await anterior; return [{ id_viaje: 1 }]; };
-    tx.pasaje.count = async () => ocupados;
-    tx.pasaje.createMany = async ({ data }) => { ocupados += data.length; };
+    tx.pasaje.count = async () => 0;
+    tx.pasaje.createMany = async ({ data }) => { creados += data.length; };
     try { return await core.registrarEnTransaccion(tx, validacion.leerReserva(datos), "clerk-test"); }
     finally { liberar(); }
   }
   const resultados = await Promise.allSettled([reservar(), reservar()]);
-  assert.equal(resultados.filter((r) => r.status === "fulfilled").length, 1);
-  const rechazo = resultados.find((r) => r.status === "rejected").reason;
-  assert.equal(rechazo.agotado, true);
-  assert.match(rechazo.message, /El asiento ya no está disponible/);
-  assert.equal(ocupados, 1);
+  assert.equal(resultados.filter((r) => r.status === "fulfilled").length, 2);
+  assert.equal(creados, 2);
 });
 
 test("reserva: clase sin capacidad, vuelo cancelado, vencido y pasajero repetido no se guardan", async () => {
