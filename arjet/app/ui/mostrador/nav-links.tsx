@@ -31,7 +31,7 @@ export function NavLinksMostrador() {
             key={item.href}
             href={item.href}
             aria-current={activo ? "page" : undefined}
-            className={`flex min-w-max items-center gap-3 rounded-md px-3 py-3 text-sm font-medium transition lg:min-w-0 ${
+            className={`flex items-center gap-3 rounded-md px-3 py-3 text-sm font-medium transition ${
               activo
                 ? "bg-primary text-primary-foreground shadow-sm"
                 : "text-zinc-700 hover:bg-white hover:text-secondary"
