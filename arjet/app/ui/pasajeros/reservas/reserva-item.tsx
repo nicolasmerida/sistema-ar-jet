@@ -6,13 +6,13 @@ import { EstadoReserva } from "./estado-reserva";
 
 export type SeleccionCancelacion = { codigo: number; idPasaje?: number; descripcion: string };
 
-export function ReservaItem({ reserva, cancelar }: { reserva: ReservaCliente; cancelar: (seleccion: SeleccionCancelacion) => void }) {
+export function ReservaItem({ reserva, cancelar, compra = false, children }: { reserva: ReservaCliente; cancelar: (seleccion: SeleccionCancelacion) => void; compra?: boolean; children?: React.ReactNode }) {
   const activos = reserva.pasajes.filter((p) => !p.cancelado);
   const bloqueo = activos.find((p) => p.bloqueo)?.bloqueo;
   return (
     <details className="group rounded-md border border-zinc-200">
       <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 rounded-md bg-tertiary px-4 py-4 text-sm focus-visible:outline-2 focus-visible:outline-primary [&::-webkit-details-marker]:hidden">
-        <span className="min-w-0 font-semibold text-secondary">Reserva RES-{reserva.codigo} <span className="font-normal text-zinc-600">· {reserva.pasajes[0]?.numero ?? "Sin vuelo"}</span></span>
+        <span className="min-w-0 font-semibold text-secondary">{compra ? "Compra" : "Reserva"} RES-{reserva.codigo} <span className="font-normal text-zinc-600">· {reserva.pasajes[0]?.numero ?? "Sin vuelo"}</span></span>
         <span className="flex items-center gap-3"><EstadoReserva estado={reserva.estado} /><ChevronDown className="size-4 transition-transform group-open:rotate-180" aria-hidden="true" /></span>
       </summary>
       <div className="p-4">
@@ -38,10 +38,11 @@ export function ReservaItem({ reserva, cancelar }: { reserva: ReservaCliente; ca
           </table>
         </div>
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 pt-4">
-          <Link href={`/vuelos/reservas/${reserva.codigo}`} className="inline-flex items-center gap-2 text-sm font-semibold text-secondary"><ExternalLink className="size-4" aria-hidden="true" />Ver resumen</Link>
+          <Link href={compra ? `/vuelos/compras/${reserva.codigo}` : `/vuelos/reservas/${reserva.codigo}`} className="inline-flex items-center gap-2 text-sm font-semibold text-secondary"><ExternalLink className="size-4" aria-hidden="true" />Ver resumen</Link>
           {activos.length > 0 && <button type="button" disabled={Boolean(bloqueo)} onClick={() => cancelar({ codigo: reserva.codigo, descripcion: `Todos los pasajes activos de RES-${reserva.codigo} (${activos.length})` })}
             className="inline-flex items-center gap-2 rounded-md border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"><XCircle className="size-4" aria-hidden="true" />Cancelar reserva</button>}
         </div>
+        {children}
       </div>
     </details>
   );

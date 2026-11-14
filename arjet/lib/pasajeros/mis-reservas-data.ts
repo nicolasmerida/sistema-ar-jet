@@ -3,9 +3,9 @@ import "server-only";
 import { db } from "@/src/prisma/db";
 import { bloqueoCancelacionPasaje } from "./cancelacion-reglas";
 
-export async function obtenerMisReservas(clerkId: string, ahora = new Date()) {
+export async function obtenerMisReservas(clerkId: string, ahora = new Date(), soloSinCompra = false) {
   const reservas = await db.reserva.findMany({
-    where: { usuario: { clerk_id: clerkId } }, orderBy: { cod_compra: "desc" },
+    where: { usuario: { clerk_id: clerkId }, ...(soloSinCompra ? { pago: { documentacion: { is: null } } } : {}) }, orderBy: { cod_compra: "desc" },
     select: { cod_compra: true, modalidad: true, pago: { select: { estado_compra: true, pasaje: {
       orderBy: { id_pasaje: "asc" }, select: {
         id_pasaje: true, cancelado: true, fecha_cancelacion: true, clase: true,

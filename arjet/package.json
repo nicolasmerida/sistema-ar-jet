@@ -4,9 +4,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/con-documentos.mjs dev",
     "build": "next build",
-    "start": "next start",
+    "start": "node scripts/con-documentos.mjs start",
+    "documentos:worker": "node --import tsx --conditions=react-server scripts/documentos-worker.ts",
     "lint": "eslint",
     "db:pull": "prisma db pull",
     "db:generate": "prisma generate",
@@ -14,15 +15,18 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^7.9.17",
+    "@pdf-lib/fontkit": "^1.1.1",
     "@prisma/adapter-pg": "^7.0.0",
     "@prisma/client": "^7.0.0",
     "dotenv": "^18.0.5",
     "lucide-react": "^1.51.0",
     "next": "16.3.8",
+    "pdf-lib": "^1.17.1",
     "pg": "^8.0.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "server-only": "^0.0.1"
+    "server-only": "^0.0.1",
+    "tsx": "^4.23.15"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

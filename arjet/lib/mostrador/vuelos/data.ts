@@ -2,7 +2,7 @@ import "server-only";
 
 import type { Prisma } from "@/src/generated/prisma/client";
 import { db } from "@/src/prisma/db";
-import { filtroPasajesActivos } from "@/lib/vuelos/data";
+import { filtroPasajesVendidos } from "@/lib/vuelos/data";
 import { instanteLocal, sumarDias } from "@/lib/vuelos/fechas";
 import type { OpcionAeropuerto } from "@/lib/vuelos/tipos";
 import { estadoActual, porcentajeOcupacion } from "./estado";
@@ -82,7 +82,7 @@ export async function buscarEstadoVuelos(filtros: FiltrosValidos, ahora = new Da
     for (const viaje of mostrados) ids.push(viaje.id_viaje);
     const grupos = await db.pasaje.groupBy({
       by: ["id_viaje", "clase"],
-      where: { ...filtroPasajesActivos, id_viaje: { in: ids } },
+      where: { ...filtroPasajesVendidos, id_viaje: { in: ids } },
       _count: { _all: true },
     });
     for (const grupo of grupos) ocupados.set(`${grupo.id_viaje}:${grupo.clase}`, grupo._count._all);

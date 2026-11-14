@@ -63,8 +63,14 @@ model pago {
   factura       String?         @unique @db.VarChar(50)
   tipo          tipo_pago_t?
   estado_compra estado_compra_t @default(pendiente)
+  importe       Decimal?        @db.Decimal(12, 2)
+  moneda        String          @default("ARS") @db.VarChar(3)
+  fecha_pago    DateTime?       @db.Timestamptz(6)
+  referencia    String?         @unique @db.VarChar(50)
+  tarjeta_ultimos4 String?       @db.VarChar(4)
   pasaje        pasaje[]
   reserva       reserva?
+  documentacion documentacion_compra?
 }
 
 model pasaje {
@@ -73,12 +79,14 @@ model pasaje {
   compra                             Int
   pasajero                           String   @db.VarChar(20)
   clase                              clase_t
+  precio_unitario                    Decimal   @db.Decimal(10, 2)
   cancelado                          Boolean   @default(false)
   fecha_cancelacion                  DateTime? @db.Timestamptz(6)
   presentado                         Boolean   @default(false)
   fecha_checkin                      DateTime? @db.Timestamptz(6)
   pago                               pago      @relation(fields: [compra], references: [cod_compra], onDelete: NoAction, onUpdate: NoAction)
   viaje                              viaje    @relation(fields: [id_viaje], references: [id_viaje], onDelete: NoAction, onUpdate: NoAction)
+  ticket                             documento?
   pasajero_pasaje_pasajeroTopasajero pasajero @relation("pasaje_pasajeroTopasajero", fields: [pasajero], references: [dni], onDelete: NoAction, onUpdate: NoAction)
 
   // La unicidad de pasajes activos se aplica con un índice parcial en prisma/sql.
@@ -92,6 +100,36 @@ model pasajero {
   nombre                           String   @db.VarChar(100)
   apellido                         String   @db.VarChar(100)
   pasaje_pasaje_pasajeroTopasajero pasaje[] @relation("pasaje_pasajeroTopasajero")
+}
+
+model documentacion_compra {
+  cod_compra       Int       @id
+  datos            Json
+  estado           String    @default("pendiente") @db.VarChar(20)
+  intentos         Int       @default(0)
+  proximo_intento  DateTime  @default(now()) @db.Timestamptz(6)
+  bloqueo_hasta    DateTime? @db.Timestamptz(6)
+  bloqueo_token    String?   @db.VarChar(36)
+  actualizado      DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+  pago             pago      @relation(fields: [cod_compra], references: [cod_compra], onDelete: NoAction)
+  documentos       documento[]
+
+  @@index([estado, proximo_intento])
+}
+
+model documento {
+  id          String    @id @default(uuid()) @db.Uuid
+  clave       String    @unique @db.VarChar(80)
+  numero      String    @unique @db.VarChar(50)
+  tipo        String    @db.VarChar(10)
+  cod_compra  Int
+  id_pasaje   Int?      @unique
+  pdf         Bytes?
+  emitido_en  DateTime? @db.Timestamptz(6)
+  compra      documentacion_compra @relation(fields: [cod_compra], references: [cod_compra], onDelete: NoAction)
+  pasaje      pasaje?   @relation(fields: [id_pasaje], references: [id_pasaje], onDelete: NoAction)
+
+  @@index([cod_compra])
 }
 
 model reserva {

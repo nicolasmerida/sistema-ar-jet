@@ -7,7 +7,7 @@ import { ArrowLeft, ArrowRight, LoaderCircle } from "lucide-react";
 import type { VueloDisponible } from "@/lib/pasajeros/tipos";
 import type { DatosBusqueda } from "@/lib/pasajeros/validacion";
 import { reservarVuelo } from "@/lib/pasajeros/reserva-actions";
-import { normalizarPasajero, validarPasajeros, type ClaseReserva, type DatosPasajero, type ErroresReserva } from "@/lib/pasajeros/reserva-validacion";
+import { normalizarPasajero, validarCantidadPasajes, validarPasajeros, type ClaseReserva, type DatosPasajero, type ErroresReserva } from "@/lib/pasajeros/reserva-validacion";
 import { rutaReserva } from "@/lib/pasajeros/rutas";
 import { dinero, fechaHora } from "./formato";
 import { PasosReserva } from "./pasos-reserva";
@@ -20,18 +20,20 @@ export function ReservaForm({ vuelo, busqueda, claseInicial }: { vuelo: VueloDis
   const router = useRouter();
   const [clase, setClase] = useState<ClaseReserva>(vuelo[claseInicial].disponibles ? claseInicial : vuelo.economy.disponibles ? "economy" : "primera");
   const [pasajeros, setPasajeros] = useState<DatosPasajero[]>([pasajeroVacio()]);
+  const [cantidadInvalida, setCantidadInvalida] = useState(false);
   const [intentado, setIntentado] = useState(false);
   const [erroresServidor, setErroresServidor] = useState<ErroresReserva>({});
   const [mensaje, setMensaje] = useState("");
   const [pendiente, iniciar] = useTransition();
   const tarifa = vuelo[clase];
-  const insuficientes = pasajeros.length > tarifa.disponibles;
+  const avisoCantidad = validarCantidadPasajes(pasajeros.length, tarifa.disponibles);
+  const bloqueado = cantidadInvalida || Boolean(avisoCantidad);
   const errores = intentado ? validarPasajeros(pasajeros) : erroresServidor;
   const volver = `/vuelos?${new URLSearchParams(busqueda)}`;
 
   function confirmar() {
     setIntentado(true);
-    if (pendiente || insuficientes || Object.keys(validarPasajeros(pasajeros)).length) return;
+    if (pendiente || bloqueado || Object.keys(validarPasajeros(pasajeros)).length) return;
     setMensaje("");
     iniciar(async () => {
       try {
@@ -59,14 +61,14 @@ export function ReservaForm({ vuelo, busqueda, claseInicial }: { vuelo: VueloDis
       </section>
       <form noValidate onSubmit={(e) => { e.preventDefault(); confirmar(); }} className="flex flex-col gap-8" aria-busy={pendiente}>
         <SeleccionClase vuelo={vuelo} clase={clase} cambiar={(valor) => { setClase(valor); setMensaje(""); }} pendiente={pendiente} />
-        <PasajerosForm pasajeros={pasajeros} errores={errores.pasajeros} disponibles={tarifa.disponibles} pendiente={pendiente}
+        <PasajerosForm pasajeros={pasajeros} errores={errores.pasajeros} avisoCantidad={avisoCantidad} pendiente={pendiente}
+          invalidarCantidad={(invalida) => { setCantidadInvalida(invalida); setMensaje(""); }}
           cantidad={(valor) => { setPasajeros((actual) => Array.from({ length: valor }, (_, i) => actual[i] ?? pasajeroVacio())); setMensaje(""); }}
           cambiar={(indice, campo, valor) => { setPasajeros((actual) => actual.map((p, i) => i === indice ? { ...p, [campo]: valor } : p)); setErroresServidor({}); setMensaje(""); }} />
-        {insuficientes && <p role="alert" className="text-sm text-red-600">No hay suficientes asientos en esta clase para la cantidad de pasajeros seleccionada.</p>}
         {mensaje && <p role="alert" className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">{mensaje}</p>}
         <div className="flex flex-wrap items-center justify-between gap-4 border-t border-zinc-200 pt-6">
           <div><p className="text-sm text-zinc-500">Total · {pasajeros.length} {pasajeros.length === 1 ? "pasajero" : "pasajeros"}</p><p className="text-2xl font-semibold text-secondary">{dinero(Math.round(Number(tarifa.precio) * 100) * pasajeros.length / 100)}</p></div>
-          <button type="submit" disabled={pendiente || insuficientes} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50">
+          <button type="submit" disabled={pendiente || bloqueado} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50">
             {pendiente ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <ArrowRight className="size-4" aria-hidden="true" />}{pendiente ? "Reservando..." : "Continuar al pago"}
           </button>
         </div>

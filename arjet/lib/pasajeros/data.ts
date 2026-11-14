@@ -1,7 +1,7 @@
 import "server-only";
 
 import { db } from "@/src/prisma/db";
-import { filtroPasajesActivos } from "@/lib/vuelos/data";
+import { filtroPasajesVendidos } from "@/lib/vuelos/data";
 import { columnaFecha, instanteLocal, sumarDias } from "@/lib/vuelos/fechas";
 import type { OpcionAeropuerto } from "@/lib/vuelos/tipos";
 import type { VueloDisponible } from "./tipos";
@@ -31,7 +31,7 @@ export async function obtenerVuelosDisponibles(datos: DatosBusqueda, ahora = new
     select: {
       id_viaje: true, fecha_partida: true, fecha_llegada: true, estado: true,
       avion: { select: { capacidad_economy: true, capacidad_primera: true } },
-      pasaje: { where: filtroPasajesActivos, select: { clase: true } },
+      pasaje: { where: filtroPasajesVendidos, select: { clase: true } },
       vuelo: { select: {
         numero: true, precio_economy: true, precio_primera: true,
         aeropuerto_vuelo_origenToaeropuerto: { select: { codigo_iata: true, ciudad: true } },

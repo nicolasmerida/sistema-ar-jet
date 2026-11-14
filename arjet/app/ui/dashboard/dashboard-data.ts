@@ -1,4 +1,5 @@
 import {
+  BarChart3,
   CalendarClock,
   Clock3,
   MapPin,
@@ -14,6 +15,7 @@ export const navigationItems = [
   { label: "Aeropuertos", href: "/dashboard/aeropuertos", icon: MapPin },
   { label: "Aviones", href: "/dashboard/aviones", icon: Plane },
   { label: "Usuarios", href: "/dashboard/usuarios", icon: Users },
+  { label: "Reportes de ocupación", href: "/dashboard/reportes-ocupacion", icon: BarChart3 },
 ];
 
 export const summaryCards = [

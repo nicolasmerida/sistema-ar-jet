@@ -10,6 +10,7 @@ const isNeutral = createRouteMatcher(["/ingreso", "/completar-perfil"]);
 const isDashboard = createRouteMatcher(["/dashboard(.*)"]);
 const isMostrador = createRouteMatcher(["/mostrador(.*)"]);
 const isVuelos = createRouteMatcher(["/vuelos(.*)"]);
+const isReporteOcupacion = createRouteMatcher(["/dashboard/reportes-ocupacion"]);
 
 export default clerkMiddleware(async (auth, req) => {
   const esRutaConRol =
@@ -17,7 +18,9 @@ export default clerkMiddleware(async (auth, req) => {
   if (!esRutaConRol) return;
 
   const { userId } = await auth.protect();
-  if (isNeutral(req)) return;
+  // Esta página verifica el rol antes de consultar datos y muestra el rechazo
+  // solicitado por US-28. La server action también comprueba el administrador.
+  if (isNeutral(req) || isReporteOcupacion(req)) return;
 
   const client = await clerkClient();
   const usuario = await client.users.getUser(userId);

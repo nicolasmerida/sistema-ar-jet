@@ -31,7 +31,7 @@ export default async function VuelosPage({ searchParams }: PageProps<"/vuelos">)
       <section className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-10">
         <h1 className="mb-6 text-2xl font-semibold">Buscar vuelos</h1>
         <BusquedaVuelos key={`${datos.origen}-${datos.destino}-${datos.fecha}-${params.aviso ?? ""}`} aeropuertos={aeropuertos} hoy={hoyEnArgentina()} errorCarga={errorCarga}
-          datosIniciales={busquedaValida ? datos : undefined} resultadoInicial={resultado} agotado={params.aviso === "agotado"} />
+          datosIniciales={busquedaValida ? datos : undefined} resultadoInicial={resultado} agotado={params.aviso === "agotado" || params.aviso === "sin-asientos-pago"} sinAsientosPago={params.aviso === "sin-asientos-pago"} />
       </section>
   );
 }

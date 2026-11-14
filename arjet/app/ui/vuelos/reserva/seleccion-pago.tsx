@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { CheckCircle2, CreditCard, Landmark, LoaderCircle } from "lucide-react";
 import { confirmarReserva } from "@/lib/pasajeros/pago-actions";
 import type { ModalidadReserva } from "@/lib/pasajeros/pago";
@@ -18,7 +19,7 @@ export function SeleccionPago({ codigo, total, partida, modalidadGuardada, puede
   const codigoVisible = `RES-${codigo}`;
 
   function confirmar() {
-    if (pendiente || confirmada || !puedeConfirmar) return;
+    if (pendiente || !puedeConfirmar) return;
     setMensaje("");
     iniciar(async () => {
       try {
@@ -37,10 +38,17 @@ export function SeleccionPago({ codigo, total, partida, modalidadGuardada, puede
     </section>
   );
 
+  if (estado === "pagado") return (
+    <section aria-labelledby="seleccion-pago-titulo" className="min-w-0">
+      <h2 id="seleccion-pago-titulo" className="mb-5 text-lg font-semibold">Pago confirmado</h2>
+      <p role="status" className="flex items-center gap-2 rounded-md border border-green-200 bg-green-50 p-5 text-sm text-green-800"><CheckCircle2 className="size-5 shrink-0" aria-hidden="true" />Pago realizado correctamente</p>
+    </section>
+  );
+
   return (
     <section aria-labelledby="seleccion-pago-titulo" className="min-w-0">
       <h2 id="seleccion-pago-titulo" className="mb-5 text-lg font-semibold">Selección de pago</h2>
-      <fieldset disabled={pendiente || confirmada || !puedeConfirmar} className="grid grid-cols-2 border-b border-zinc-200">
+      <fieldset disabled={pendiente || !puedeConfirmar} className="grid grid-cols-2 border-b border-zinc-200">
         <legend className="sr-only">Modalidad de reserva</legend>
         {(["tarjeta", "mostrador"] as const).map((opcion) => {
           const Icon = opcion === "tarjeta" ? CreditCard : Landmark;
@@ -58,12 +66,14 @@ export function SeleccionPago({ codigo, total, partida, modalidadGuardada, puede
           <p className="text-sm text-zinc-600">Código de reserva</p>
           <p className="mt-1 break-all text-xl font-semibold text-secondary">{codigoVisible}</p>
           <p className="mt-3 text-sm leading-6 text-zinc-600">
-            {modalidad === "mostrador" ? "Presentá este código en el mostrador del aeropuerto para abonar en efectivo o con tarjeta." : "Tu vuelo quedará reservado con pago pendiente mediante tarjeta. No se realizará ningún cobro en este paso."}
+            {modalidad === "mostrador" ? "Presentá este código en el mostrador del aeropuerto para abonar en efectivo o con tarjeta." : "Confirmá el resumen para ingresar los datos de la tarjeta y pagar tu reserva."}
           </p>
           <p className="mt-3 text-xs text-zinc-500">Salida del vuelo: {fechaHora(partida)}</p>
         </div>
         <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm"><span className="text-zinc-500">{estado === "pagado" ? "Total de pasajes activos" : "Total pendiente"}</span><span className="text-xl font-semibold text-secondary">{dinero(total)}</span></div>
-        {confirmada ? (
+        {modalidad === "tarjeta" && puedeConfirmar ? (
+          <Link href={`/vuelos/reservas/${codigo}/pago`} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90"><CreditCard className="size-4" aria-hidden="true" />Ir a pagar</Link>
+        ) : confirmada && modalidad === modalidadGuardada ? (
           <div role="status" className="flex items-start gap-2 rounded-md border border-green-200 bg-green-50 p-4 text-sm text-green-800">
             <CheckCircle2 className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
             <span>Reserva confirmada: {codigoVisible}. {estado === "pendiente" ? "Pago pendiente." : `Estado del pago: ${estado}.`}</span>
